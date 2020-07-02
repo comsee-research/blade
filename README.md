@@ -1,5 +1,3 @@
----
-
 BLADE: Blur Aware Depth Estimation with a plenoptic camera
 =====================================================
 

@@ -28,6 +28,11 @@ set(MULTIFOCUS_INCDIRS "src")
 set(MULTIFOCUS_SRCS 
 	src/utils.cpp
 	src/depth.cpp
+	##---------------
+	src/optimization/depth.cpp
+	src/optimization/errors/depth.cpp
+	##---------------
+	src/processing/depth/depth.cpp
 )
 
 message(${LIBPLENO_LIBRARIES})

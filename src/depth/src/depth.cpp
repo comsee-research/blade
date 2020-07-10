@@ -13,10 +13,21 @@
 #include <pleno/io/printer.h>
 
 //geometry
+#include <pleno/geometry/observation.h>
+
+//processing
 #include <pleno/processing/improcess.h> //devignetting
+#include "processing/depth/depth.h"
 
 //config
+#include <pleno/io/cfg/images.h>
+#include <pleno/io/cfg/camera.h>
+#include <pleno/io/cfg/scene.h>
+#include <pleno/io/cfg/observations.h>
+#include <pleno/io/cfg/poses.h>
+
 #include "utils.h"
+
 
 void clear() {
 	GUI(
@@ -68,7 +79,101 @@ int main(int argc, char* argv[])
 	Printer::verbose(config.verbose); DEBUG_VAR(Printer::verbose());
 	Printer::level(config.level); DEBUG_VAR(Printer::level());
 
+////////////////////////////////////////////////////////////////////////////////
+// 1) Load Images from configuration file
+////////////////////////////////////////////////////////////////////////////////
+	std::vector<ImageWithInfo> checkerboards;
+	Image mask;
+	{
+		PRINT_WARN("1) Load Images from configuration file");
+		ImagesConfig cfg_images;
+		v::load(config.path.images, cfg_images);
 	
+		//1.2) Load checkerboard images
+		PRINT_WARN("\t1.1) Load checkerboard images");	
+		//std::vector<ImageWithInfo> checkerboards;	
+		load(cfg_images.checkerboards(), checkerboards);
+		
+		DEBUG_ASSERT((checkerboards.size() != 0u),	"You need to provide checkerboard images!");
+		
+		const double cbfnbr = checkerboards[0].fnumber;	
+		for (const auto& [ _ , fnumber] : checkerboards)
+		{
+			DEBUG_ASSERT((cbfnbr == fnumber), "All checkerboard images should have the same aperture configuration");
+		}
+		
+		//1.3) Load white image corresponding to the aperture (mask)
+		PRINT_WARN("\t1.2) Load white image corresponding to the aperture (mask)");
+		const auto [mask_, mfnbr] = ImageWithInfo{ 
+					cv::imread(cfg_images.mask().path(), cv::IMREAD_UNCHANGED),
+					cfg_images.mask().fnumber()
+				};
+		mask = mask_;
+		DEBUG_ASSERT((mfnbr == cbfnbr), "No corresponding f-number between mask and images");
+	}
+
+////////////////////////////////////////////////////////////////////////////////
+// 2) Load Camera information configuration file
+////////////////////////////////////////////////////////////////////////////////
+	PRINT_WARN("2) Load Camera information from configuration file");
+	PlenopticCamera mfpc;
+	load(config.path.camera, mfpc);
+	
+	InternalParameters params;
+	v::load(config.path.params, v::make_serializable(&params));
+	mfpc.params() = params;
+
+	PRINT_INFO("Camera = " << mfpc << std::endl);
+	PRINT_INFO("Internal Parameters = " << params << std::endl);
+
+////////////////////////////////////////////////////////////////////////////////
+// 3) Features extraction step
+////////////////////////////////////////////////////////////////////////////////
+	PRINT_WARN("3) Load Features");	
+	BAPObservations bap_obs;
+	{
+		ObservationsConfig cfg_obs;
+		v::load(config.path.features, cfg_obs);
+
+		bap_obs = cfg_obs.features(); DEBUG_VAR(bap_obs.size());
+		
+		DEBUG_ASSERT(
+			((bap_obs.size() > 0u)), 
+			"No observations available (missing features)"
+		);
+	}	
+
+////////////////////////////////////////////////////////////////////////////////
+// 4) Starting Blur Aware depth estimation
+////////////////////////////////////////////////////////////////////////////////	
+	PRINT_WARN("4) Starting Blur Aware depth estimation");
+	PRINT_WARN("\t4.1) Devignetting images");
+			
+	std::vector<Image> pictures;
+	pictures.reserve(checkerboards.size());
+	
+	std::transform(
+		checkerboards.begin(), checkerboards.end(),
+		std::back_inserter(pictures),
+		[&mask](const auto& iwi) -> Image { 
+			Image unvignetted;
+			devignetting(iwi.img, mask, unvignetted);
+    		Image img = Image::zeros(unvignetted.rows, unvignetted.cols, CV_8UC1);
+			cv::cvtColor(unvignetted, img, cv::COLOR_BGR2GRAY);
+			return img; 
+		}	
+	);	
+
+	PRINT_WARN("\t4.2) Calibrate");	
+	estimate_depth(mfpc, bap_obs, pictures);
+
+#if 0	
+	if(save())
+	{
+		PRINT_WARN("5) Saving internals parameters");
+		v::save("params-"+std::to_string(getpid())+".js", v::make_serializable(&params));
+	}
+#endif
 	PRINT_INFO("========= EOF =========");
 
 	Viewer::wait();

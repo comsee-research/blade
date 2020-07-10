@@ -40,6 +40,10 @@ Config_t parse_args(int argc, char *argv[])
 			po::value<std::string>()->default_value(""),
 			"Path to camera internal parameters configuration file"
 		)
+		("features,f",
+			po::value<std::string>()->default_value(""),
+			"Path to observations file"
+		)
 		("output,o",
 			po::value<std::string>()->default_value("depth.png"),
 			"Path to save depth map"
@@ -88,6 +92,7 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.images 		= vm["pimages"].as<std::string>();
 	config.path.camera 		= vm["pcamera"].as<std::string>();
 	config.path.params 		= vm["pparams"].as<std::string>();
+	config.path.features 	= vm["features"].as<std::string>();
 	config.path.output 		= vm["output"].as<std::string>();
 	
 	return config; 

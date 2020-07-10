@@ -12,6 +12,7 @@ struct Config_t {
 		std::string images;
 		std::string camera;
 		std::string params;
+		std::string features;
 		std::string output;
 	} path;
 };

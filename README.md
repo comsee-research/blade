@@ -79,7 +79,7 @@ If you use BLADE or [libpleno] in an academic context, please cite the following
 License
 =======
 
-COMPOTE is licensed under the GNU General Public License v3.0. Enjoy!
+BLADE is licensed under the GNU General Public License v3.0. Enjoy!
 
 [Ubuntu]: http://www.ubuntu.com
 [CMake]: http://www.cmake.org

@@ -159,20 +159,20 @@ bool BlurAwareDisparityCostError::operator()(
 	
 	Image warpmask;
 	wmask.convertTo(warpmask, CV_8U, 255);
-	cv::threshold(warpmask, warpmask, 252, 255, cv::THRESH_BINARY);	
+	cv::threshold(warpmask, warpmask, 200, 255, cv::THRESH_BINARY);	
 	trim(warpmask, radius);	
 
 //5) compute cost
 	const int nbpixel = cv::countNonZero(warpmask);
 	if(nbpixel==0) //no-reprojection
 	{
-		error[0] = 1e6 / v;
+		error[0] = 1e5 / v;
 		return true;
 	}
 	
-	const double cost = 255. * cv::norm(fref, wedi, cv::NORM_L1, warpmask) / (static_cast<double>(nbpixel) + 1e-5);	
+	const double cost = 255. * cv::norm(fref, wedi, cv::NORM_L1, warpmask) / (static_cast<double>(nbpixel) * v + 1e-6);//cv::norm(wmask, cv::NORM_L2); //	
 	error[0] = cost;
-
+	
 #if ENABLE_DEBUG_DISPLAY
 	Image costimg;
 	cv::add(fref, -1. * wedi, costimg, warpmask);

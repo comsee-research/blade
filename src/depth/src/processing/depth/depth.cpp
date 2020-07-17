@@ -35,11 +35,12 @@ void optimize(
 	//for each frame
 	for(auto & [frame, baps]: obs)
 	{ 		
-		if (frame != 9) continue;
-		PRINT_INFO("Estimation for frame f = " << frame);
+		if (frame != 5) continue;
+		
+		PRINT_INFO("Estimation for frame f = " << frame); //<< ", cluster = " << cluster);
 		std::vector<BlurAwareDisparityCostError> functors; functors.reserve(20456);
 		
-		Solver_t solver{1e2, 25, 1.0 - 1e-12};
+		Solver_t solver{1e2, 50, 1.0 - 1e-12};
 		
 		Depth depth; depth.z = depths[frame].z;
 		
@@ -50,7 +51,7 @@ void optimize(
 		
 		//for each cluster
 		for(auto & [cluster, obs_] : clusters)
-		{
+		{		
 			//for each observation
 			for(std::size_t i = 0; i < obs_.size() ; ++i)
 			{
@@ -103,19 +104,21 @@ void optimize(
 					}
 				);
 			}//pair of observations
+		
 		}//clusters
 		
 		functors.shrink_to_fit();
 		std::vector<P2D> xys; xys.reserve(functors.size());
 		
 		solver.solve(lma::DENSE, lma::enable_verbose_output());
-		PRINT_INFO("Optimized depth for frame ("<< frame<<") = " << depth.z);
+		PRINT_INFO("Optimized depth for frame ("<< frame<<"), v = " << depth.z << ", z = " << mfpc.v2obj(depth.z) << std::endl);
 
-		//for(double z = 600.; z < 1050.; z+=1.)
-		for(double z = 2.; z < 12.; z+=0.1)
+		for(double z = 300.; z < 1050.; z+=1.)
+		//for(double v = 2.; v < 12.; v+=0.1)
 		{
+			double v = mfpc.obj2v(z);
 			BlurAwareDisparityCostError::ErrorType err;
-			Depth depthz{z};
+			Depth depthz{v};
 			double cost = 0.;
 			
 			for(auto& f : functors)
@@ -123,10 +126,10 @@ void optimize(
 				f(depthz, err);
 				cost+=err[0];					
 			}
-			xys.emplace_back(z, cost);
+			xys.emplace_back(mfpc.v2obj(v), cost);
 		}
 		
-		std::ofstream ofs("costfunction-"+std::to_string(getpid())+"-frame-"+std::to_string(frame)+".csv");
+		std::ofstream ofs("costfunction-"+std::to_string(getpid())+"-frame-"+std::to_string(frame)+".csv"); //+"-cluster-"+std::to_string(cluster)+".csv");
 		if (!ofs.good())
 			throw std::runtime_error(std::string("Cannot open file costfunction.csv"));
 		
@@ -134,6 +137,7 @@ void optimize(
 		for(auto& xy: xys) ofs << xy[0] << "," << xy[1] << std::endl;
 		
 		ofs.close();	
+		
 	}
 }
 
@@ -150,7 +154,7 @@ void estimate_depth(
 	PRINT_INFO("=== Init Parameter");	
 	std::vector<Depth> depths(images.size());
 	for(int i=0; i<images.size(); ++i) 
-		depths[i].z = 9.6 ; //mfpc.v2obj(3.);
+		depths[i].z = 2. ; //mfpc.v2obj(3.);
 			 
 //3) Run optimization
 	PRINT_INFO("=== Run optimization");	

@@ -8,8 +8,12 @@
 #include <pleno/geometry/mia.h> //MicroImage
 
 #include <pleno/processing/improcess.h>
+
 #include <pleno/processing/tools/lens.h>
+#include <pleno/processing/tools/rmse.h>
+
 #include <pleno/io/printer.h>
+#include <pleno/graphic/display.h>
 
 //******************************************************************************
 //******************************************************************************
@@ -23,7 +27,7 @@ void optimize(
 	const std::vector<Image>& images
 )
 {
-	constexpr int W = 25u;
+	constexpr int W = 23u;
 	
 	using Solver_t = lma::Solver<BlurAwareDisparityCostError>;
 	
@@ -35,9 +39,15 @@ void optimize(
 	//for each frame
 	for(auto & [frame, baps]: obs)
 	{ 		
-		if (frame != 5) continue;
+		if (frame != 3) continue;
 		
 		PRINT_INFO("Estimation for frame f = " << frame); //<< ", cluster = " << cluster);
+		RENDER_DEBUG_2D(
+			Viewer::context().layer(Viewer::layer()++)
+  				.name("Frame f = "+std::to_string(frame)),
+  			images[frame]
+	  	);
+		
 		std::vector<BlurAwareDisparityCostError> functors; functors.reserve(20456);
 		
 		Solver_t solver{1e2, 50, 1.0 - 1e-12};
@@ -61,22 +71,22 @@ void optimize(
 					[lhs=*current, &mfpc, &W, img=images[frame], &depth, &solver, &functors](const auto &rhs) -> void {
 						const std::size_t I = mfpc.I();
 						
-						P2D lhsmlkl = mfpc.mi2ml(lhs.k, lhs.l);
-						P2D rhsmlkl = mfpc.mi2ml(rhs.k, rhs.l);
+						//P2D lhsmlkl = mfpc.mi2ml(lhs.k, lhs.l);
+						//P2D rhsmlkl = mfpc.mi2ml(rhs.k, rhs.l);
 						
 						// get micro-images
 						MicroImage mii{
 							static_cast<std::size_t>(lhs.k), static_cast<std::size_t>(lhs.l),
 							mfpc.mia().nodeInWorld(lhs.k,lhs.l),
 							W/2.,
-							lens_type(I, lhsmlkl[0], lhsmlkl[1])
+							lens_type(I, lhs.k,lhs.l)
 						};
 						
 						MicroImage mij{
 							static_cast<std::size_t>(rhs.k), static_cast<std::size_t>(rhs.l),
 							mfpc.mia().nodeInWorld(rhs.k,rhs.l),
 							W/2.,
-							lens_type(I, rhsmlkl[0], rhsmlkl[1])
+							lens_type(I, rhs.k, rhs.l)
 						};
 						
 						//extract images
@@ -106,38 +116,48 @@ void optimize(
 			}//pair of observations
 		
 		}//clusters
-		
-		functors.shrink_to_fit();
-		std::vector<P2D> xys; xys.reserve(functors.size());
-		
-		solver.solve(lma::DENSE, lma::enable_verbose_output());
-		PRINT_INFO("Optimized depth for frame ("<< frame<<"), v = " << depth.z << ", z = " << mfpc.v2obj(depth.z) << std::endl);
 
-		for(double z = 300.; z < 1050.; z+=1.)
-		//for(double v = 2.; v < 12.; v+=0.1)
+		solver.solve(lma::DENSE, lma::enable_verbose_output());
+		PRINT_INFO("Optimized depth for frame ("<< frame<<"), v = " << depth.z << ", z = " << mfpc.v2obj(depth.z));
+		
+#if 1		
+		functors.shrink_to_fit();
+		std::vector<P3D> xys; xys.reserve(functors.size());
+		
+		const double maxz = mfpc.v2obj(2.1);
+		const double minv = 2.1;
+		const double minz = 4. * std::ceil(mfpc.focal());
+		const double maxv = mfpc.obj2v(minz);
+		const double nbsample = 1000.;
+		const double stepz = (maxz - minz) / nbsample;
+		const double stepv = (maxv - minv) / nbsample;
+		
+		PRINT_INFO("Evaluate depth from z = "<< minz <<" (v = "<< maxv <<"), to z = " << maxz << " (v = " << minv << ")" << std::endl);
+		//for(double z = minz; z < maxz; z+=stepz)
+		for(double v = minv; v < maxv; v+=stepv)
 		{
-			double v = mfpc.obj2v(z);
+			//double v = mfpc.obj2v(z);
 			BlurAwareDisparityCostError::ErrorType err;
 			Depth depthz{v};
-			double cost = 0.;
+			RMSE cost{0., 0};
 			
 			for(auto& f : functors)
 			{
 				f(depthz, err);
-				cost+=err[0];					
+				cost.add(err[0]);					
 			}
-			xys.emplace_back(mfpc.v2obj(v), cost);
+			xys.emplace_back(v, mfpc.v2obj(v), cost.get());
 		}
 		
 		std::ofstream ofs("costfunction-"+std::to_string(getpid())+"-frame-"+std::to_string(frame)+".csv"); //+"-cluster-"+std::to_string(cluster)+".csv");
 		if (!ofs.good())
 			throw std::runtime_error(std::string("Cannot open file costfunction.csv"));
 		
-		ofs << "depth,cost\n";
-		for(auto& xy: xys) ofs << xy[0] << "," << xy[1] << std::endl;
+		ofs << "v,depth,cost\n";
+		for(auto& xy: xys) ofs << xy[0] << "," << xy[1]  << "," << xy[2]<< std::endl;
 		
 		ofs.close();	
-		
+#endif		
 	}
 }
 
@@ -152,9 +172,16 @@ void estimate_depth(
 {
 //1) Init Parameters
 	PRINT_INFO("=== Init Parameter");	
+	
+	double mdfp = 0.; //mean distance focal plane
+	for(int i =0; i < mfpc.I(); ++i) mdfp +=  mfpc.focal_plane(i);
+	mdfp /= mfpc.I();
+	double v = mfpc.obj2v(mdfp);
+	DEBUG_VAR(mdfp); DEBUG_VAR(v);
+	
 	std::vector<Depth> depths(images.size());
 	for(int i=0; i<images.size(); ++i) 
-		depths[i].z = 2. ; //mfpc.v2obj(3.);
+		depths[i].z = 8.32; //v; //2.1 ; //mfpc.v2obj(3.);
 			 
 //3) Run optimization
 	PRINT_INFO("=== Run optimization");	

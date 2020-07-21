@@ -71,9 +71,6 @@ void optimize(
 					[lhs=*current, &mfpc, &W, img=images[frame], &depth, &solver, &functors](const auto &rhs) -> void {
 						const std::size_t I = mfpc.I();
 						
-						//P2D lhsmlkl = mfpc.mi2ml(lhs.k, lhs.l);
-						//P2D rhsmlkl = mfpc.mi2ml(rhs.k, rhs.l);
-						
 						// get micro-images
 						MicroImage mii{
 							static_cast<std::size_t>(lhs.k), static_cast<std::size_t>(lhs.l),
@@ -181,7 +178,7 @@ void estimate_depth(
 	
 	std::vector<Depth> depths(images.size());
 	for(int i=0; i<images.size(); ++i) 
-		depths[i].z = 8.32; //v; //2.1 ; //mfpc.v2obj(3.);
+		depths[i].z = v; //2.1 ; //mfpc.v2obj(3.);
 			 
 //3) Run optimization
 	PRINT_INFO("=== Run optimization");	

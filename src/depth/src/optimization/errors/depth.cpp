@@ -4,7 +4,7 @@
 
 #include <pleno/processing/improcess.h>
 
-#define ENABLE_DEBUG_DISPLAY 1
+#define ENABLE_DEBUG_DISPLAY 0
 
 BlurAwareDisparityCostError::BlurAwareDisparityCostError(
 	const Image& img_i_, const Image& img_j_, 
@@ -126,32 +126,15 @@ bool BlurAwareDisparityCostError::operator()(
 	
 	const double mij = ((A * A * d) / 2.) * ((1. / ai) - (1. / aj)); //mm²
 	const double cij = ((A * A * d * d) / 4.) * ((1. / (ai * ai)) - (1. / (aj * aj))); //mm²	
-	double rel_blur_v = mij * (1. / v) + cij; //mm²
+	const double rel_blur = mij * (1. / v) + cij; //mm²	
 	
-	const double ri = (A / 2.) * (1. / v) + (A * d) / (2. * ai); //mm
-	const double rj = (A / 2.) * (1. / v) + (A * d) / (2. * aj); //mm 
-	
-	const double ripix = mfpc.sensor().metric2pxl(std::fabs(ri)); //pix
-	const double rjpix = mfpc.sensor().metric2pxl(std::fabs(rj)); //pix
-	
-	const double rel_blur = (ri * ri) - (rj * rj); //mm²
-	const double relblurpix = rel_blur / (mfpc.sensor().scale() * mfpc.sensor().scale()); //pix
-	
-	bool isOrdered = (ripix > rjpix); //(i)-view is more defocused the the (j)-view
-
-#if ENABLE_DEBUG_DISPLAY	
-	DEBUG_VAR(ai);
-	DEBUG_VAR(aj);
-	DEBUG_VAR(ri);
-	DEBUG_VAR(rj);
-	DEBUG_VAR(ripix);
-	DEBUG_VAR(rjpix);
+#if ENABLE_DEBUG_DISPLAY
+	const double relblurpix = std::fabs(rel_blur) / (mfpc.sensor().scale() * mfpc.sensor().scale()); //pix²
 	DEBUG_VAR(relblurpix);
-	DEBUG_VAR(rel_blur_v-rel_blur);
 #endif 
 
-	Image imi = img_i.clone();
-	
+	bool isOrdered = (rel_blur >= 0.); //(i)-view is more defocused the the (j)-view
+
 	Image ref, edi;	
 	if (isOrdered) //(i)-view is more defocused the the (j)-view
 	{
@@ -160,7 +143,9 @@ bool BlurAwareDisparityCostError::operator()(
 	}
 	else //(j)-view is more defocused the the (i)-view
 	{
+#if ENABLE_DEBUG_DISPLAY
 		PRINT_DEBUG("Switch views: ref ("<< mi_j.type+1<<"), edi ("<< mi_i.type+1<<")");
+#endif 
 		ref = img_j; //(j)-view is ref
 		edi = img_i; //(i)-view has to be equally-defocused
 	}
@@ -171,6 +156,7 @@ bool BlurAwareDisparityCostError::operator()(
 	edi.convertTo(fmask, CV_32FC1, 1./255.0); 
 	ref.convertTo(fref, CV_32FC1, 1./255.0); 
 	edi.convertTo(fedi, CV_32FC1, 1./255.0); 
+	
 	//apply mask
 	trim_float_binarize(fmask, radius); //create mask
 	trim_float(fref, radius); //apply circular mask on ref
@@ -182,7 +168,7 @@ bool BlurAwareDisparityCostError::operator()(
 	//3) compute equally-defocused image
 		//3.1) compute sigma_r	
 		const double rho_r = mfpc.sensor().metric2pxl(std::sqrt(std::abs(rel_blur)));
-		const double kappa = mfpc.params().kappa;
+		const double kappa = 2. * mfpc.params().kappa;
 		const double sigma_r = kappa * rho_r;
 		#if ENABLE_DEBUG_DISPLAY
 			PRINT_DEBUG("r("<< mi_i.type+1<<", "<< mi_j.type+1<<") = " << rel_blur / (mfpc.sensor().scale() * mfpc.sensor().scale()));
@@ -237,10 +223,10 @@ bool BlurAwareDisparityCostError::operator()(
 		return true;
 	}
 
-	const double normalization = cv::sum(wmask)[0] + 1e-6; //cv::sum(wmask)[0] / disparity.norm() + 1e-7; //
+	const double normalization = cv::sum(wmask)[0] + 1e-6; //number of pixel to take into account
 	const double cost = cv::norm(fref, wedi, cv::NORM_L1, warpmask) / normalization; //normalized SAD
 	
-	error[0] = cost; //std::sqrt(cost); //set sqrt as the error is then squared in the optimization
+	error[0] = cost;
 	
 #if ENABLE_DEBUG_DISPLAY
 	Image costimg;
@@ -253,7 +239,6 @@ bool BlurAwareDisparityCostError::operator()(
 	cv::namedWindow("warpmask", cv::WINDOW_NORMAL);
 	cv::namedWindow("wedi", cv::WINDOW_NORMAL);
 	cv::namedWindow("cost", cv::WINDOW_NORMAL);
-	cv::namedWindow("image (i)", cv::WINDOW_NORMAL);
 	
 	cv::resizeWindow("fref", 200u, 200u);
 	cv::resizeWindow("edi", 200u, 200u);
@@ -261,7 +246,6 @@ bool BlurAwareDisparityCostError::operator()(
 	cv::resizeWindow("warpmask", 200u, 200u);
 	cv::resizeWindow("wedi", 200u, 200u);
 	cv::resizeWindow("cost", 200u, 200u);
-	cv::resizeWindow("image (i)", 200u, 200u);
 	
 	cv::imshow("fref", fref);
 	cv::imshow("edi", edi);
@@ -269,7 +253,6 @@ bool BlurAwareDisparityCostError::operator()(
 	cv::imshow("warpmask", warpmask);
 	cv::imshow("wedi", wedi);
 	cv::imshow("cost", costimg);
-	cv::imshow("image (i)", imi);
 
 	DEBUG_VAR(v);
 	DEBUG_VAR(deltaC);

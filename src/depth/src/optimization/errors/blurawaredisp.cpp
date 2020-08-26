@@ -1,11 +1,15 @@
-#include "depth.h"
+#include "blurawaredisp.h"
 
 #include <pleno/io/printer.h>
 
 #include <pleno/processing/improcess.h>
 
 #define ENABLE_DEBUG_DISPLAY 0
+#define SPEED_BEFORE_ACCURACY 0
 
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
 BlurAwareDisparityCostError::BlurAwareDisparityCostError(
 	const Image& img_i_, const Image& img_j_, 
 	const MicroImage& mi_i_, const MicroImage& mi_j_, 
@@ -26,100 +30,23 @@ BlurAwareDisparityCostError::BlurAwareDisparityCostError(
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
-void trim_binarize(Image& img, double radius)
-{
-	const int width 	= img.cols;
-	const int height 	= img.rows;
-	const float centerx = width / 2.;
-	const float centery = height / 2.;
-	
-	uchar * pixel;
-	for(int y = 0 ; y < height ; ++y) //for each row
-	{
-		pixel = img.ptr<uchar>(y);
-		for(int x = 0 ; x < width ; ++x) //for each column
-		{
-			if(std::hypot(x-centerx, y-centery) < radius) //in
-			{
-				pixel[x] = 255; 
-			}
-			else //out
-			{	
-				pixel[x] = 0;	
-			}			
-		}
-	}
-}
-
-void trim_float(Image& img, double radius)
-{
-	const int width 	= img.cols;
-	const int height 	= img.rows;
-	const float centerx = width / 2.;
-	const float centery = height / 2.;
-	
-	float * pixel;
-	for(int y = 0 ; y < height ; ++y) //for each row
-	{
-		pixel = img.ptr<float>(y);
-		for(int x = 0 ; x < width ; ++x) //for each column
-		{
-			if(std::hypot(x-centerx, y-centery) > radius) //out
-			{
-				pixel[x] = 0.;	
-			}			
-		}
-	}
-}
-
-void trim_float_binarize(Image& img, double radius)
-{
-	const int width 	= img.cols;
-	const int height 	= img.rows;
-	const float centerx = width / 2.;
-	const float centery = height / 2.;
-	
-	float * pixel;
-	for(int y = 0 ; y < height ; ++y) //for each row
-	{
-		pixel = img.ptr<float>(y);
-		for(int x = 0 ; x < width ; ++x) //for each column
-		{
-			if(std::hypot(x-centerx, y-centery) > radius) //out
-			{
-				pixel[x] = 0.;	
-			}	
-			else //in
-			{
-				pixel[x] = 1.;
-			}		
-		}
-	}
-}
-
-
 bool BlurAwareDisparityCostError::operator()(
-    const Depth& depth,
+    const VirtualDepth& depth,
 	ErrorType& error
 ) const
 {    
-    constexpr bool applyblur = false;
     constexpr double maxv = 20.;
     constexpr double lens_border = 1.5; //1.5
 
-#if ENABLE_DEBUG_DISPLAY
-	if(not applyblur) DEBUG_VAR(applyblur);
-#endif   
-
     error.setZero();
     
-	const double v = depth.z; //mfpc.obj2v(depth.z);
+	const double v = depth.v;
 	const double radius = (mfpc.mia().edge_length()[0] + mfpc.mia().edge_length()[1]) / 4. - lens_border;
     
 //0) Check hypotheses:
 	//0.1) Discard observation?
     const double eta = (mi_j.center - mi_i.center).norm() / (1.95 * radius);
-	if(eta > v and v > 2.)
+	if(eta > v and std::fabs(v) > 2.)
 	{
 		return false;
 	}
@@ -141,11 +68,6 @@ bool BlurAwareDisparityCostError::operator()(
 
 	const double rel_blur = mij * (1. / v) + cij; //mm²	
 	
-#if ENABLE_DEBUG_DISPLAY
-	const double relblurpix = std::fabs(rel_blur) / (mfpc.sensor().scale() * mfpc.sensor().scale()); //pix²
-	DEBUG_VAR(relblurpix);
-#endif 
-
 	const bool isOrdered = (rel_blur >= 0.); //(i)-view is more defocused the the (j)-view
 
 	Image ref, edi;	
@@ -165,36 +87,51 @@ bool BlurAwareDisparityCostError::operator()(
 
 //2) compute mask	
 	//float conversion
-	Image fmask, fref, fedi;	
+	Image fmask, fref, fedi	;
 	edi.convertTo(fmask, CV_32FC1, 1./255.0); 
 	ref.convertTo(fref, CV_32FC1, 1./255.0); 
 	edi.convertTo(fedi, CV_32FC1, 1./255.0); 
 	
 	//apply mask
 	trim_float_binarize(fmask, radius); //create mask
-	trim_float(fref, radius); //apply circular mask on ref
-	trim_float(fedi, radius); //apply circular mask on edi
-
-	if(applyblur and mi_i.type != mi_j.type) //if not the same type
-	{
+#if ENABLE_DEBUG_DISPLAY
+	trim_float(fref, radius); //only for vizualisation, apply circular mask on ref
+#endif
+	
+	if(mi_i.type != mi_j.type) //if not the same type
+	{	
 	//3) compute equally-defocused image
 		//3.1) compute sigma_r	
 		const double rho_r = mfpc.sensor().metric2pxl(std::sqrt(std::abs(rel_blur)));
 		const double kappa = mfpc.params().kappa; 
 		const double sigma_r = kappa * rho_r;
+		
 		#if ENABLE_DEBUG_DISPLAY
 			PRINT_DEBUG("r("<< mi_i.type+1<<", "<< mi_j.type+1<<") = " << rel_blur / (mfpc.sensor().scale() * mfpc.sensor().scale()));
 			DEBUG_VAR(rho_r);
 			DEBUG_VAR(sigma_r);
+			
+			auto t_start = std::chrono::high_resolution_clock::now();
 		#endif
-		Image bmask, bedi;
-		//3.2) blur images
-		cv::GaussianBlur(fmask, bmask, cv::Size{0,0}, sigma_r, sigma_r);
-		cv::GaussianBlur(fedi, bedi, cv::Size{0,0}, sigma_r, sigma_r);	
-		cv::divide(bedi, bmask, fedi); //fedi is the final blurred image
+		
+		//3.2) blur images, fedi is the final blurred image
+		#if SPEED_BEFORE_ACCURACY //blur w/o considering neighbors impact
+			cv::GaussianBlur(fedi, fedi, cv::Size{0,0}, sigma_r, sigma_r);
+		#else 
+			Image bmask, bedi;
+			trim_float(fedi, radius); //apply circular mask on edi
+			
+			cv::GaussianBlur(fmask, bmask, cv::Size{0,0}, sigma_r, sigma_r); //blur mask
+			cv::GaussianBlur(fedi, bedi, cv::Size{0,0}, sigma_r, sigma_r); //blur masked image	
+			cv::divide(bedi, bmask, fedi); //divide the blurred masked image by the blurred mask 
+		#endif
 		
 		#if ENABLE_DEBUG_DISPLAY
-			trim_float(fedi, radius); //just to help vizualisation
+			auto t_end = std::chrono::high_resolution_clock::now();
+			double blur_time = std::chrono::duration<double>(t_end-t_start).count();	
+			DEBUG_VAR(blur_time);		
+			
+			trim_float(fedi, radius); //only for vizualisation
 		#endif
 	}
 #if ENABLE_DEBUG_DISPLAY
@@ -205,14 +142,6 @@ bool BlurAwareDisparityCostError::operator()(
 	//4.1) compute disparity and transformation
 	const P2D deltaC = mi_j.center - mi_i.center;
 	P2D disparity = deltaC / v; 
-	
-	//check hypothesis
-	const double ratiodisp = disparity.norm() / (1.95 * radius);
-	if(ratiodisp > 1.) //Is edi reprojected in ref?
-	{
-		error[0] = std::exp(ratiodisp / 10.); 
-		return true;
-	}
 
 	if(not isOrdered) //reoriente the disparity vector
 	{
@@ -222,7 +151,7 @@ bool BlurAwareDisparityCostError::operator()(
 	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disparity[0], 0., 1., disparity[1]); //Affine transformation
 	
 	//4.2) warp mask and edi	
-	Image wmask, wedi;
+	Image wmask, wedi, wedi2, wedi3;
 	cv::warpAffine(fmask, wmask, M, fmask.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
 	cv::warpAffine(fedi, wedi, M, fedi.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
 	
@@ -270,7 +199,6 @@ bool BlurAwareDisparityCostError::operator()(
 	DEBUG_VAR(v);
 	DEBUG_VAR(deltaC);
 	DEBUG_VAR(disparity);
-	DEBUG_VAR(ratiodisp);
 	DEBUG_VAR(cost);
 	PRINT_DEBUG("---------------------------");
 	std::getchar();

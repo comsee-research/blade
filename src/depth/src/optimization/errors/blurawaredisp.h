@@ -29,7 +29,7 @@ struct BlurAwareDisparityCostError
     BlurAwareDisparityCostError(BlurAwareDisparityCostError&& o);
     
     bool operator()( 
-    	const Depth& depth,
+    	const VirtualDepth& depth,
     	ErrorType& error
     ) const;
 };

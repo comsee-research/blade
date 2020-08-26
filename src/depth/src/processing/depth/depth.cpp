@@ -3,7 +3,8 @@
 //optimization
 //#include "optimization/optimization.h"
 #include "optimization/depth.h"
-#include "optimization/errors/depth.h" //BlurAwareDisparityCostError
+#include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
+#include "optimization/errors/disparity.h" //DisparityCostError
 
 #include <pleno/geometry/mia.h> //MicroImage
 
@@ -22,7 +23,7 @@
 //******************************************************************************
 void optimize(
 	//OUT
-	std::vector<Depth>& depths, /* */
+	std::vector<VirtualDepth>& depths, /* */
 	//IN
 	const PlenopticCamera& mfpc,
 	const BAPObservations& observations, /*  (u,v,rho) */
@@ -31,7 +32,8 @@ void optimize(
 {
 	constexpr int W = 23u;
 	
-	using Solver_t = lma::Solver<BlurAwareDisparityCostError>;
+	using FunctorError_t = BlurAwareDisparityCostError;
+	using Solver_t = lma::Solver<FunctorError_t>;
 	
 	//split observations according to frame index
 	std::unordered_map<Index /* frame index */, BAPObservations> obs;
@@ -50,11 +52,11 @@ void optimize(
   			images[frame]
 	  	);
 		
-		std::vector<BlurAwareDisparityCostError> functors; functors.reserve(20456);
+		std::vector<FunctorError_t> functors; functors.reserve(20456);
 		
 		Solver_t solver{AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12};
 		
-		Depth depth; depth.z = depths[frame].z;
+		VirtualDepth depth; depth.v = depths[frame].v;
 		
 		//split observations according to cluster index
 		std::unordered_map<Index /* cluster index */, BAPObservations> clusters;
@@ -97,7 +99,7 @@ void optimize(
 						
 						//add in solver
 						solver.add(
-							BlurAwareDisparityCostError{
+							FunctorError_t{
 								viewi, viewj,
 								mii, mij,
 								mfpc
@@ -106,7 +108,7 @@ void optimize(
 						);
 						
 						functors.emplace_back(
-							BlurAwareDisparityCostError{
+							FunctorError_t{
 								viewi, viewj,
 								mii, mij,
 								mfpc
@@ -119,14 +121,14 @@ void optimize(
 		}//clusters
 
 		solver.solve(lma::DENSE, lma::enable_verbose_output());
-		const double optimized_depth = depth.z; 
+		const double optimized_depth = depth.v; 
 		PRINT_INFO("Optimized depth for frame ("<< frame<<"), v = " << optimized_depth << ", z = " << mfpc.v2obj(optimized_depth));
 		
 #if 1		
 		functors.shrink_to_fit();
 		std::vector<P3D> xys; xys.reserve(functors.size());
 		
-		const double minv = 2.1;
+		const double minv = 2.05;
 		const double maxz = mfpc.v2obj(minv);
 		const double minz = 4. * std::ceil(mfpc.focal());
 		const double maxv = mfpc.obj2v(minz);
@@ -135,18 +137,16 @@ void optimize(
 		const double stepv = (maxv - minv) / nbsample;
 		
 		PRINT_INFO("Evaluate depth from z = "<< minz <<" (v = "<< maxv <<"), to z = " << maxz << " (v = " << minv << ")" << std::endl);
-		//for(double z = minz; z < maxz; z+=stepz)
 		for(double v = minv; v < maxv; v+=stepv)
-		//for(double v = maxv; v < 100.; v+=stepv)
 		{
 			//double v = mfpc.obj2v(z);
-			BlurAwareDisparityCostError::ErrorType err;
-			Depth depthz{v};
+			typename FunctorError_t::ErrorType err;
+			VirtualDepth depth{v};
 			RMSE cost{0., 0};
 			
 			for(auto& f : functors)
 			{
-				if(f(depthz, err))
+				if(f(depth, err))
 				{
 					cost.add(err[0]);	
 				}				
@@ -184,11 +184,11 @@ void estimate_depth(
 	double v = mfpc.obj2v(mdfp);
 	DEBUG_VAR(mdfp); DEBUG_VAR(v);
 	
-	std::vector<Depth> depths(images.size());
+	std::vector<VirtualDepth> depths(images.size());
 	for(int i=0; i<images.size(); ++i) 
-		depths[i].z = v; //mfpc.obj2v(2. * mfpc.focal());//8.45; //v; //2.1 ; //mfpc.v2obj(3.);
+		depths[i].v = v; //mfpc.obj2v(2. * mfpc.focal());//8.45; //v; //2.1 ; //mfpc.v2obj(3.);
 		
-	PRINT_INFO("Initial depth value v = " << depths[0].z <<", z = " << mfpc.v2obj(depths[0].z));
+	PRINT_INFO("Initial depth value v = " << depths[0].v <<", z = " << mfpc.v2obj(depths[0].v));
 			 
 //3) Run optimization
 	PRINT_INFO("=== Run optimization");	

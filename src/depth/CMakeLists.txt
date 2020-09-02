@@ -28,6 +28,8 @@ set(MULTIFOCUS_INCDIRS "src")
 set(MULTIFOCUS_SRCS 
 	src/utils.cpp
 	##---------------
+	src/geometry/depth/RawCoarseDepthMap.cpp
+	##---------------
 	src/optimization/depth.cpp
 	src/optimization/errors/blurawaredisp.cpp
 	src/optimization/errors/disparity.cpp

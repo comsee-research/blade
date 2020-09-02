@@ -82,7 +82,7 @@ int main(int argc, char* argv[])
 ////////////////////////////////////////////////////////////////////////////////
 // 1) Load Images from configuration file
 ////////////////////////////////////////////////////////////////////////////////
-	std::vector<ImageWithInfo> images;
+	std::vector<ImageWithInfo> checkerboards;
 	Image mask;
 	{
 		PRINT_WARN("1) Load Images from configuration file");
@@ -90,15 +90,16 @@ int main(int argc, char* argv[])
 		v::load(config.path.images, cfg_images);
 	
 		//1.2) Load checkerboard images
-		PRINT_WARN("\t1.1) Load images");	
-		load(cfg_images.images(), images);
+		PRINT_WARN("\t1.1) Load checkerboard images");	
+		//std::vector<ImageWithInfo> checkerboards;	
+		load(cfg_images.checkerboards(), checkerboards);
 		
-		DEBUG_ASSERT((images.size() != 0u),	"You need to provide images!");
+		DEBUG_ASSERT((checkerboards.size() != 0u),	"You need to provide checkerboard images!");
 		
-		const double cbfnbr = images[0].fnumber;	
-		for (const auto& [ _ , fnumber] : images)
+		const double cbfnbr = checkerboards[0].fnumber;	
+		for (const auto& [ _ , fnumber] : checkerboards)
 		{
-			DEBUG_ASSERT((cbfnbr == fnumber), "All images should have the same aperture configuration");
+			DEBUG_ASSERT((cbfnbr == fnumber), "All checkerboard images should have the same aperture configuration");
 		}
 		
 		//1.3) Load white image corresponding to the aperture (mask)
@@ -126,16 +127,33 @@ int main(int argc, char* argv[])
 	PRINT_INFO("Internal Parameters = " << params << std::endl);
 
 ////////////////////////////////////////////////////////////////////////////////
-// 3) Starting Blur Aware depth estimation
+// 3) Features extraction step
+////////////////////////////////////////////////////////////////////////////////
+	PRINT_WARN("3) Load Features");	
+	BAPObservations bap_obs;
+	{
+		ObservationsConfig cfg_obs;
+		v::load(config.path.features, cfg_obs);
+
+		bap_obs = cfg_obs.features(); DEBUG_VAR(bap_obs.size());
+		
+		DEBUG_ASSERT(
+			((bap_obs.size() > 0u)), 
+			"No observations available (missing features)"
+		);
+	}	
+
+////////////////////////////////////////////////////////////////////////////////
+// 4) Starting Blur Aware depth estimation
 ////////////////////////////////////////////////////////////////////////////////	
-	PRINT_WARN("3) Starting Blur Aware depth estimation");
-	PRINT_WARN("\t3.1) Devignetting images");
+	PRINT_WARN("4) Starting Blur Aware depth estimation");
+	PRINT_WARN("\t4.1) Devignetting images");
 			
 	std::vector<Image> pictures;
-	pictures.reserve(images.size());
+	pictures.reserve(checkerboards.size());
 	
 	std::transform(
-		images.begin(), images.end(),
+		checkerboards.begin(), checkerboards.end(),
 		std::back_inserter(pictures),
 		[&mask](const auto& iwi) -> Image { 
 			Image unvignetted;
@@ -145,9 +163,13 @@ int main(int argc, char* argv[])
 			return img; 
 		}	
 	);	
+
+	PRINT_WARN("\t4.2) Estimate depth from observations");	
+	estimate_depth_from_observations(mfpc, bap_obs, pictures);
 	
-	PRINT_WARN("\t4.2) Estimate depthmap");	
-	estimate_depth(mfpc, pictures[0]);
+	
+	//PRINT_WARN("\t4.3) Estimate depthmap");	
+	//estimate_depth(mfpc, pictures[9]);
 
 #if 0	
 	if(save())

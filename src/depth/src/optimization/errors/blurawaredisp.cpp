@@ -41,17 +41,17 @@ bool BlurAwareDisparityCostError::operator()(
     error.setZero();
     
 	const double v = depth.v;
-	const double radius = (mfpc.mia().edge_length()[0] + mfpc.mia().edge_length()[1]) / 4. - lens_border;
+	const double radius = mfpc.mia().radius() - lens_border;
     
 //0) Check hypotheses:
 	//0.1) Discard observation?
     const double eta = (mi_j.center - mi_i.center).norm() / (1.95 * radius);
-	if(eta > v and std::fabs(v) > 2.)
+	if(eta > std::fabs(v) and std::fabs(v) > 2.)
 	{
 		return false;
 	}
 	//0.2) Is disparity estimation possible? Is object real?
-	if(std::fabs(v) < 2. or mfpc.v2obj(v) < 0.) 
+	if(std::fabs(v) < 2. or mfpc.v2obj(v) < mfpc.focal()) 
 	{
 		error[0] = 255. / v;
 		return true;
@@ -87,7 +87,7 @@ bool BlurAwareDisparityCostError::operator()(
 
 //2) compute mask	
 	//float conversion
-	Image fmask, fref, fedi	;
+	Image fmask, fref, fedi;
 	edi.convertTo(fmask, CV_32FC1, 1./255.0); 
 	ref.convertTo(fref, CV_32FC1, 1./255.0); 
 	edi.convertTo(fedi, CV_32FC1, 1./255.0); 
@@ -151,7 +151,7 @@ bool BlurAwareDisparityCostError::operator()(
 	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disparity[0], 0., 1., disparity[1]); //Affine transformation
 	
 	//4.2) warp mask and edi	
-	Image wmask, wedi, wedi2, wedi3;
+	Image wmask, wedi;
 	cv::warpAffine(fmask, wmask, M, fmask.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
 	cv::warpAffine(fedi, wedi, M, fedi.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
 	
@@ -165,7 +165,7 @@ bool BlurAwareDisparityCostError::operator()(
 	const double normalization = 1. / (cv::sum(wmask)[0] + 1e-6); //number of pixel to take into account
 	const double cost = cv::norm(fref, wedi, cv::NORM_L1, warpmask) * normalization; //normalized SAD
 
-	error[0] = cost;
+	error[0] = cost * 100.;
 	
 #if ENABLE_DEBUG_DISPLAY
 	Image costimg;

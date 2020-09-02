@@ -1,7 +1,9 @@
 #include "depth.h"
 
+#include <thread>
+#include <random>
+
 //optimization
-//#include "optimization/optimization.h"
 #include "optimization/depth.h"
 #include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
 #include "optimization/errors/disparity.h" //DisparityCostError
@@ -12,189 +14,312 @@
 
 #include <pleno/processing/tools/lens.h>
 #include <pleno/processing/tools/rmse.h>
+#include <pleno/processing/tools/stats.h>
 
 #include <pleno/io/printer.h>
 #include <pleno/graphic/display.h>
 
-#define AUTOMATIC_LAMBDA_SCALE -1
+#include "geometry/depth/RawCoarseDepthMap.h"
+#include "../../graphic/display.h"
+
+#include "strategy.h"
+#include "neighbors.h"
+#include "filter.h"
+#include "initialization.h"
+
+constexpr double 		AUTOMATIC_LAMBDA_SCALE 	= -1.;
+
+#define	DISPLAY_FRAME	1
+#define VERBOSE_OPTIM	0
 
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
-void optimize(
-	//OUT
-	std::vector<VirtualDepth>& depths, /* */
-	//IN
-	const PlenopticCamera& mfpc,
-	const BAPObservations& observations, /*  (u,v,rho) */
-	const std::vector<Image>& images
+void optimize_depth(
+	const std::vector<IndexPair>& neighs, 
+	const PlenopticCamera& mfpc, const Image& scene, 
+	std::size_t ck, std::size_t cl, //current indexes
+	double& depth, //in/out
+	ObservationsParingStrategy mode = ObservationsParingStrategy::CENTRALIZED
 )
-{
-	constexpr int W = 23u;
+{ 	
+	const std::size_t I = mfpc.I();
+	const int W = std::floor(mfpc.mia().diameter());
 	
 	using FunctorError_t = BlurAwareDisparityCostError;
 	using Solver_t = lma::Solver<FunctorError_t>;
 	
-	//split observations according to frame index
-	std::unordered_map<Index /* frame index */, BAPObservations> obs;
-	for(const auto& ob : observations)
-		obs[ob.frame].push_back(ob);	
+	Solver_t solver{AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12};
 	
-	//for each frame
-	for(auto & [frame, baps]: obs)
-	{ 		
-		if (frame != 8 and frame != 9) continue;
-		
-		PRINT_INFO("Estimation for frame f = " << frame); //<< ", cluster = " << cluster);
-		RENDER_DEBUG_2D(
-			Viewer::context().layer(Viewer::layer()++)
-  				.name("Frame f = "+std::to_string(frame)),
-  			images[frame]
-	  	);
-		
-		std::vector<FunctorError_t> functors; functors.reserve(20456);
-		
-		Solver_t solver{AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12};
-		
-		VirtualDepth depth; depth.v = depths[frame].v;
-		
-		//split observations according to cluster index
-		std::unordered_map<Index /* cluster index */, BAPObservations> clusters;
-		for(const auto& ob : baps)
-			clusters[ob.cluster].push_back(ob);	
-		
-		int stop = 0;
-		//for each cluster
-		for(auto & [cluster, obs_] : clusters)
-		{		
-			if(stop++>0) break;
-			//for each observation
-			for(std::size_t i = 0; i < obs_.size() ; ++i)
-			{
-				auto current = obs_.begin()+i;
-
-				std::for_each( current+1, obs_.end(), 
-					[lhs=*current, &mfpc, &W, img=images[frame], &depth, &solver, &functors](const auto &rhs) -> void {
-						const std::size_t I = mfpc.I();
-						
-						// get micro-images
-						MicroImage mii{
-							static_cast<std::size_t>(lhs.k), static_cast<std::size_t>(lhs.l),
-							mfpc.mia().nodeInWorld(lhs.k,lhs.l),
-							W/2.,
-							lens_type(I, lhs.k,lhs.l)
-						};
-						
-						MicroImage mij{
-							static_cast<std::size_t>(rhs.k), static_cast<std::size_t>(rhs.l),
-							mfpc.mia().nodeInWorld(rhs.k,rhs.l),
-							W/2.,
-							lens_type(I, rhs.k, rhs.l)
-						};
-						
-						//extract images
-						Image viewi, viewj;
-						cv::getRectSubPix(img, cv::Size{W,W}, cv::Point2d{mii.center[0], mii.center[1]}, viewi);
-						cv::getRectSubPix(img, cv::Size{W,W}, cv::Point2d{mij.center[0], mij.center[1]}, viewj);
-						
-						//add in solver
-						solver.add(
-							FunctorError_t{
-								viewi, viewj,
-								mii, mij,
-								mfpc
-							},
-							&depth
-						);
-						
-						functors.emplace_back(
-							FunctorError_t{
-								viewi, viewj,
-								mii, mij,
-								mfpc
-							}
-						);					
-					}
-				);
-			}//pair of observations
-		
-		}//clusters
-
-		solver.solve(lma::DENSE, lma::enable_verbose_output());
-		const double optimized_depth = depth.v; 
-		PRINT_INFO("Optimized depth for frame ("<< frame<<"), v = " << optimized_depth << ", z = " << mfpc.v2obj(optimized_depth));
-		
-#if 1		
-		functors.shrink_to_fit();
-		std::vector<P3D> xys; xys.reserve(functors.size());
-		
-		const double minv = 2.05;
-		const double maxz = mfpc.v2obj(minv);
-		const double minz = 4. * std::ceil(mfpc.focal());
-		const double maxv = mfpc.obj2v(minz);
-		const double nbsample = 1000.;
-		const double stepz = (maxz - minz) / nbsample;
-		const double stepv = (maxv - minv) / nbsample;
-		
-		PRINT_INFO("Evaluate depth from z = "<< minz <<" (v = "<< maxv <<"), to z = " << maxz << " (v = " << minv << ")" << std::endl);
-		for(double v = minv; v < maxv; v+=stepv)
-		{
-			//double v = mfpc.obj2v(z);
-			typename FunctorError_t::ErrorType err;
-			VirtualDepth depth{v};
-			RMSE cost{0., 0};
+	//init virtual depth
+	VirtualDepth hypothesis;
+	hypothesis.v = depth;
+	
+ 	//compute ref observation 	
+ 	MicroImage ref{
+		ck, cl,
+		mfpc.mia().nodeInWorld(ck,cl),
+		mfpc.mia().radius(),
+		lens_type(I, ck, cl)
+	};
+	
+	Image refview;
+	cv::getRectSubPix(
+		scene, cv::Size{W,W}, 
+		cv::Point2d{ref.center[0], ref.center[1]}, refview
+	);
+	
+	if(mode == ObservationsParingStrategy::CENTRALIZED)
+	{
+	 	//for each neighbor, create observation
+	 	for(auto [nk, nl] : neighs)
+	 	{
+	 		MicroImage target{
+				nk, nl,
+				mfpc.mia().nodeInWorld(nk,nl),
+				mfpc.mia().radius(),
+				lens_type(I, nk, nl)
+			};
 			
-			for(auto& f : functors)
+			Image targetview;
+			cv::getRectSubPix(
+				scene, cv::Size{W,W},  
+				cv::Point2d{target.center[0], target.center[1]}, targetview
+			);
+			
+			//add in solver
+			solver.add(
+				FunctorError_t{
+					refview, targetview,
+					ref, target,
+					mfpc
+				},
+				&hypothesis
+			);	 	
+	 	}
+	}	
+	else if (mode == ObservationsParingStrategy::ALL_PAIRS)
+	{
+		std::vector<MicroImage> vmi; vmi.reserve(100);
+		std::vector<Image> vview; vview.reserve(100);
+		
+		vmi.emplace_back(ref); vview.emplace_back(refview);
+		
+		for(auto [nk, nl] : neighs)
+	 	{
+	 		MicroImage target{
+				nk, nl,
+				mfpc.mia().nodeInWorld(nk,nl),
+				mfpc.mia().radius(),
+				lens_type(I, nk, nl)
+			};
+			
+			Image targetview;
+			cv::getRectSubPix(
+				scene, cv::Size{W,W},  
+				cv::Point2d{target.center[0], target.center[1]}, targetview
+			);
+			
+			vmi.emplace_back(target); vview.emplace_back(targetview);
+		}
+
+		//for each observation
+		for(std::size_t i = 0; i < vmi.size(); ++i)
+		{		
+			for(std::size_t j = i+1; j < vmi.size(); ++j)
 			{
-				if(f(depth, err))
-				{
-					cost.add(err[0]);	
-				}				
+				//add in solver
+				solver.add(
+					FunctorError_t{
+						vview[i], vview[j],
+						vmi[i], vmi[j],
+						mfpc
+					},
+					&hypothesis
+				);
 			}
-			xys.emplace_back(v, mfpc.v2obj(v), cost.get());
+		}	
+	}
+	else
+	{
+		DEBUG_ASSERT(false, "Can't optimize depth, no other strategy implemented yet");
+	}
+
+#if VERBOSE_OPTIM
+ 	PRINT_DEBUG("*** initial depth value = " << hypothesis.v);
+ 	solver.solve(lma::DENSE, lma::enable_verbose_output());
+ 	PRINT_DEBUG("*** optimized depth value = " << hypothesis.v);
+#else
+ 	solver.solve(lma::DENSE); //no verbose, lma::enable_verbose_output());
+#endif
+	
+ 	depth = hypothesis.v;
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+void compute_depthmap(
+	RawCoarseDepthMap& dm, 
+	const PlenopticCamera& mfpc, const Image& scene, 
+	std::size_t kinit, std::size_t linit,
+	BeliefPropagationStrategy mode = BeliefPropagationStrategy::NONE
+)
+{	
+	std::queue<IndexPair> microimages;
+	microimages.emplace(kinit, linit);
+	
+	while(not (microimages.empty()))
+	{
+		auto [ck, cl] = microimages.front(); //current indexes
+		microimages.pop();
+				
+		//Already computed, nothing to do
+		if(dm.state(ck,cl) == DepthInfo::State::COMPUTED) continue;
+		
+		//Compute first hypothesis using inner ring
+		if(dm.state(ck,cl) == DepthInfo::State::UNINITIALIZED)
+		{
+			//get neighbors
+		 	std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, 4.); 
+		 	
+		 	double hypothesis = initialize_depth(
+		 		neighs, mfpc, scene, 
+		 		ck, cl,
+		 		dm.min_depth(), dm.max_depth(), 15.
+		 	);
+		 	
+		 	if(not dm.is_valid_depth(hypothesis))
+		 	{
+		 		dm.depth(ck, cl) = DepthInfo::NO_DEPTH;
+		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
+		 		
+		 		for(auto &n: neighs) microimages.push(n);
+		 		
+		 		continue;		 	
+		 	}
+		 	
+		 	dm.depth(ck, cl) = hypothesis;
+		 	dm.state(ck, cl) = DepthInfo::State::INITIALIZED;				
 		}
 		
-		std::ofstream ofs("costfunction-"+std::to_string(getpid())+"-frame-"+std::to_string(frame)+".csv"); //+"-cluster-"+std::to_string(cluster)+".csv");
-		if (!ofs.good())
-			throw std::runtime_error(std::string("Cannot open file costfunction.csv"));
-		
-		ofs << "v,depth,cost\n";
-		for(auto& xy: xys) ofs << xy[0] << "," << xy[1]  << "," << xy[2]<< std::endl;
-		
-		ofs.close();	
-#endif		
+		//Compute depth hypothesis
+		if(dm.state(ck,cl) == DepthInfo::State::INITIALIZED)
+		{
+			double depth = dm.depth(ck, cl);
+			std::vector<IndexPair> neighs = neighbors(dm.mia(), ck, cl, depth);
+			
+			optimize_depth(neighs, mfpc, scene, ck, cl, depth);
+			
+			if(dm.is_valid_depth(depth)) dm.depth(ck, cl) = depth;
+		 	dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
+			
+			for(auto &n: neighs) 
+			{
+				//if already computed, do nothing
+				if(dm.state(n.k, n.l) == DepthInfo::State::COMPUTED) 
+				{
+					/* Add strategy to check if estimation is coherent */
+					continue;
+				}
+				
+				//if already initialized, average hypotheses
+				if(dm.state(n.k, n.l) == DepthInfo::State::INITIALIZED)
+				{					
+					/* Add strategy to update hypothesis */					
+					continue;
+				}
+				
+				//else uninitialized then initalize hypothesis if valid
+				if(mode == BeliefPropagationStrategy::ALL_NEIGHS and dm.is_valid_depth(depth))
+				{		
+					dm.depth(n.k, n.l) = depth;
+			 		dm.state(n.k, n.l) = DepthInfo::State::INITIALIZED;			
+				}
+				//add to queue
+				microimages.push(n);
+			}
+			
+			if(mode == BeliefPropagationStrategy::FIRST_RING and dm.is_valid_depth(depth))
+			{		
+				std::vector<IndexPair> innerneighs = neighbors(dm.mia(), ck, cl, 3.);
+				
+				for(auto& n: innerneighs)
+				{
+					if(dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED)
+					{
+						dm.depth(n.k, n.l) = depth;
+			 			dm.state(n.k, n.l) = DepthInfo::State::INITIALIZED;	
+			 		}
+		 		}		
+			}	
+		}		
 	}
+	PRINT_DEBUG("Local depth estimation finished.");
 }
 
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
 void estimate_depth(
-	const PlenopticCamera& mfpc,   
-	const BAPObservations& observations, /*  (u,v,rho) */
-	const std::vector<Image>& images
+	const PlenopticCamera& mfpc,
+	const Image& img
 )
-{
-//1) Init Parameters
-	PRINT_INFO("=== Init Parameter");	
+{	
+	PRINT_INFO("=== Start depth estimation");	
+#if DISPLAY_FRAME
+	RENDER_DEBUG_2D(
+		Viewer::context().layer(Viewer::layer()++)
+			.name("Frame"),
+		img
+  	);
+#endif	
+//------------------------------------------------------------------------------
+	RawCoarseDepthMap dm{mfpc, 
+		mfpc.obj2v(mfpc.distance_focus() * 2.), //2.01, //
+		mfpc.obj2v(8. * std::ceil(mfpc.focal()))
+	};
 	
-	double mdfp = 0.; //mean distance focal plane
-	for(int i =0; i < mfpc.I(); ++i) mdfp +=  mfpc.focal_plane(i);
-	mdfp /= mfpc.I();
-	double v = mfpc.obj2v(mdfp);
-	DEBUG_VAR(mdfp); DEBUG_VAR(v);
+	BeliefPropagationStrategy mode = BeliefPropagationStrategy::NONE;
 	
-	std::vector<VirtualDepth> depths(images.size());
-	for(int i=0; i<images.size(); ++i) 
-		depths[i].v = v; //mfpc.obj2v(2. * mfpc.focal());//8.45; //v; //2.1 ; //mfpc.v2obj(3.);
+	const unsigned int nthreads = std::thread::hardware_concurrency()-1;	
+//------------------------------------------------------------------------------	
+	// Run depth estimation
+	std::vector<std::thread> threads;
+	for(unsigned int i=0; i< nthreads; ++i)
+	{
+		PRINT_DEBUG("Running estimation on thread (" << i <<")...");
+		//randomly draw microimage indexes
+		auto [k,l] = initialize_kl(i, nthreads, mfpc.mia());
 		
-	PRINT_INFO("Initial depth value v = " << depths[0].v <<", z = " << mfpc.v2obj(depths[0].v));
-			 
-//3) Run optimization
-	PRINT_INFO("=== Run optimization");	
-	optimize(depths, mfpc, observations, images);
+		threads.push_back(
+			std::thread(
+				compute_depthmap,
+				std::ref(dm), std::cref(mfpc), std::cref(img), k, l, mode
+			)
+		);
+	}		
+//------------------------------------------------------------------------------	
+	// Wait for all thread to finish
+	for (std::thread & t : threads)
+		if (t.joinable()) t.join();
 	
-	PRINT_INFO("=== Optimization finished!");
-
-	std::getchar();	
+	PRINT_INFO("=== Estimation finished! Displaying depth map...");	
+	display(dm);
+	
+//------------------------------------------------------------------------------	
+	// Filtered depth map
+	PRINT_INFO("=== Filtering depth map...");	
+	RawCoarseDepthMap filtereddm = median_filter_depth(dm, 4.1);
+	PRINT_INFO("=== Filtering finished! Displaying depth map...");	
+	display(filtereddm);	
+	
+//------------------------------------------------------------------------------	
+	// Convert to metric depth map
+	PRINT_INFO("=== Converting depth map...");	
+	RawCoarseDepthMap mdm = filtereddm.as_metric();
+	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
+	display(mdm);	
+	
+	std::getchar();
 }

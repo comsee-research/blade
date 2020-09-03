@@ -310,8 +310,10 @@ void estimate_depth(
 //------------------------------------------------------------------------------	
 	// Filtered depth map
 	PRINT_INFO("=== Filtering depth map...");	
+	//RawCoarseDepthMap erodeddm = erosion_filter_depth(dm);
 	RawCoarseDepthMap filtereddm = median_filter_depth(dm, 4.1);
-	PRINT_INFO("=== Filtering finished! Displaying depth map...");	
+	PRINT_INFO("=== Filtering finished! Displaying depth map...");
+	//display(erodeddm);		
 	display(filtereddm);	
 	
 //------------------------------------------------------------------------------	

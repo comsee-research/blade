@@ -1,7 +1,7 @@
 #include "depth.h"
 
-#include <thread>
-#include <random>
+#include <thread> //std::thread
+#include <variant> //std::variant
 
 //optimization
 #include "optimization/depth.h"
@@ -46,11 +46,16 @@ void optimize_depth(
 	const std::size_t I = mfpc.I();
 	const int W = std::floor(mfpc.mia().diameter());
 	
-	using FunctorError_t = BlurAwareDisparityCostError;
-	using Solver_t = lma::Solver<FunctorError_t>;
+	const bool useBlur = (I > 0u); 
 	
-	Solver_t solver{AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12};
+	using SolverBLADE = lma::Solver<BlurAwareDisparityCostError>;
+	using SolverDISP = lma::Solver<DisparityCostError>;
+	using Solver_t = std::variant<std::monostate, SolverBLADE, SolverDISP>;
 	
+	Solver_t vsolver;
+		if(useBlur) vsolver.emplace<SolverBLADE>(AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12);
+		else vsolver.emplace<SolverDISP>(AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12);  
+
 	//init virtual depth
 	VirtualDepth hypothesis;
 	hypothesis.v = depth;
@@ -69,89 +74,96 @@ void optimize_depth(
 		cv::Point2d{ref.center[0], ref.center[1]}, refview
 	);
 	
-	if(mode == ObservationsParingStrategy::CENTRALIZED)
+	std::visit([&](auto&& solver) { using T = std::decay_t<decltype(solver)>;
+	if constexpr (not std::is_same_v<T, std::monostate>) 
 	{
-	 	//for each neighbor, create observation
-	 	for(auto [nk, nl] : neighs)
-	 	{
-	 		MicroImage target{
-				nk, nl,
-				mfpc.mia().nodeInWorld(nk,nl),
-				mfpc.mia().radius(),
-				lens_type(I, nk, nl)
-			};
-			
-			Image targetview;
-			cv::getRectSubPix(
-				scene, cv::Size{W,W},  
-				cv::Point2d{target.center[0], target.center[1]}, targetview
-			);
-			
-			//add in solver
-			solver.add(
-				FunctorError_t{
-					refview, targetview,
-					ref, target,
-					mfpc
-				},
-				&hypothesis
-			);	 	
-	 	}
-	}	
-	else if (mode == ObservationsParingStrategy::ALL_PAIRS)
-	{
-		std::vector<MicroImage> vmi; vmi.reserve(100);
-		std::vector<Image> vview; vview.reserve(100);
-		
-		vmi.emplace_back(ref); vview.emplace_back(refview);
-		
-		for(auto [nk, nl] : neighs)
-	 	{
-	 		MicroImage target{
-				nk, nl,
-				mfpc.mia().nodeInWorld(nk,nl),
-				mfpc.mia().radius(),
-				lens_type(I, nk, nl)
-			};
-			
-			Image targetview;
-			cv::getRectSubPix(
-				scene, cv::Size{W,W},  
-				cv::Point2d{target.center[0], target.center[1]}, targetview
-			);
-			
-			vmi.emplace_back(target); vview.emplace_back(targetview);
-		}
-
-		//for each observation
-		for(std::size_t i = 0; i < vmi.size(); ++i)
-		{		
-			for(std::size_t j = i+1; j < vmi.size(); ++j)
-			{
+		using FunctorError_t = typename std::conditional<std::is_same_v<T, SolverBLADE>, 
+			BlurAwareDisparityCostError, DisparityCostError>::type;
+	
+		if(mode == ObservationsParingStrategy::CENTRALIZED)
+		{
+		 	//for each neighbor, create observation
+		 	for(auto [nk, nl] : neighs)
+		 	{
+		 		MicroImage target{
+					nk, nl,
+					mfpc.mia().nodeInWorld(nk,nl),
+					mfpc.mia().radius(),
+					lens_type(I, nk, nl)
+				};
+				
+				Image targetview;
+				cv::getRectSubPix(
+					scene, cv::Size{W,W},  
+					cv::Point2d{target.center[0], target.center[1]}, targetview
+				);
+				
 				//add in solver
 				solver.add(
 					FunctorError_t{
-						vview[i], vview[j],
-						vmi[i], vmi[j],
+						refview, targetview,
+						ref, target,
 						mfpc
 					},
 					&hypothesis
-				);
-			}
+				);	 	
+		 	}
 		}	
-	}
-	else
-	{
-		DEBUG_ASSERT(false, "Can't optimize depth, no other strategy implemented yet");
-	}
+		else if (mode == ObservationsParingStrategy::ALL_PAIRS)
+		{
+			std::vector<MicroImage> vmi; vmi.reserve(100);
+			std::vector<Image> vview; vview.reserve(100);
+			
+			vmi.emplace_back(ref); vview.emplace_back(refview);
+			
+			for(auto [nk, nl] : neighs)
+		 	{
+		 		MicroImage target{
+					nk, nl,
+					mfpc.mia().nodeInWorld(nk,nl),
+					mfpc.mia().radius(),
+					lens_type(I, nk, nl)
+				};
+				
+				Image targetview;
+				cv::getRectSubPix(
+					scene, cv::Size{W,W},  
+					cv::Point2d{target.center[0], target.center[1]}, targetview
+				);
+				
+				vmi.emplace_back(target); vview.emplace_back(targetview);
+			}
 
-#if VERBOSE_OPTIM
- 	PRINT_DEBUG("*** initial depth value = " << hypothesis.v);
- 	solver.solve(lma::DENSE, lma::enable_verbose_output());
- 	PRINT_DEBUG("*** optimized depth value = " << hypothesis.v);
-#else
- 	solver.solve(lma::DENSE); //no verbose, lma::enable_verbose_output());
-#endif
+			//for each observation
+			for(std::size_t i = 0; i < vmi.size(); ++i)
+			{		
+				for(std::size_t j = i+1; j < vmi.size(); ++j)
+				{
+					//add in solver
+					solver.add(
+						FunctorError_t{
+							vview[i], vview[j],
+							vmi[i], vmi[j],
+							mfpc
+						},
+						&hypothesis
+					);
+				}
+			}	
+		}
+		else
+		{
+			DEBUG_ASSERT(false, "Can't optimize depth, no other strategy implemented yet");
+		}
+
+	#if VERBOSE_OPTIM
+	 	PRINT_DEBUG("*** initial depth value = " << hypothesis.v);
+	 	solver.solve(lma::DENSE, lma::enable_verbose_output());
+	 	PRINT_DEBUG("*** optimized depth value = " << hypothesis.v);
+	#else
+	 	solver.solve(lma::DENSE); //no verbose, lma::enable_verbose_output());
+	#endif
+	}}, vsolver);
 	
  	depth = hypothesis.v;
 }

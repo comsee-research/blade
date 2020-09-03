@@ -275,10 +275,27 @@ void estimate_depth(
   	);
 #endif	
 //------------------------------------------------------------------------------
-	RawCoarseDepthMap dm{mfpc, 
-		mfpc.obj2v(mfpc.distance_focus() * 2.), //2.01, //
-		mfpc.obj2v(8. * std::ceil(mfpc.focal()))
-	};
+	constexpr double nearfocusd = 1e3;
+	constexpr double farfocusd = 5e3; 
+	
+	double maxd, mind, d = mfpc.distance_focus() * 2.;
+	if(d < nearfocusd) //short distances
+	{
+		maxd = mfpc.distance_focus() * 1.2;
+		mind = mfpc.v2obj(12.); //std::ceil(mfpc.focal()) * 2.;
+	}
+	else if (d < farfocusd) //middle distances
+	{
+		maxd = mfpc.distance_focus() * 2.;
+		mind = 6. * std::ceil(mfpc.focal());
+	}
+	else //far distances
+	{
+		maxd = farfocusd;
+		mind = 8. * std::ceil(mfpc.focal()); 
+	}
+
+	RawCoarseDepthMap dm{mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};
 	
 	BeliefPropagationStrategy mode = BeliefPropagationStrategy::NONE;
 	

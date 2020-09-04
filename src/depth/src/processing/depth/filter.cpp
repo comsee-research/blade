@@ -60,3 +60,26 @@ RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
 	
 	return filtereddm;	
 }
+
+RawCoarseDepthMap minmax_filter_depth(const RawCoarseDepthMap& dm, double min, double max)
+{
+	RawCoarseDepthMap filtereddm{dm}; //depths are copied
+	
+	constexpr std::size_t margin = 2;
+	
+	const std::size_t kmax = dm.mia().width()-1-margin; 
+	const std::size_t kmin = 0+margin;
+	const std::size_t lmax = dm.mia().height()-1-margin; 
+	const std::size_t lmin = 0+margin;
+	
+	for(std::size_t k = kmin; k < kmax; ++k)
+	{
+		for(std::size_t l = lmin; l < lmax; ++l)
+		{
+			const double d = dm.depth(k,l);
+			if(d < min or d > max) filtereddm.depth(k,l) = DepthInfo::NO_DEPTH;
+		}
+	}
+	
+	return filtereddm;	
+}

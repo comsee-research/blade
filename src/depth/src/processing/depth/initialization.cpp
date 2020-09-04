@@ -27,10 +27,12 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
     static std::mt19937 mt(rd());
 #endif
 	
-	const std::size_t kmax = mia.width()-1; 
-	const std::size_t kmin = 0;
-	const std::size_t lmax = mia.height()-1; 
-	const std::size_t lmin = 0;
+	constexpr std::size_t margin = 2;
+	
+	const std::size_t kmax = mia.width()-1-margin; 
+	const std::size_t kmin = 0+margin;
+	const std::size_t lmax = mia.height()-1-margin; 
+	const std::size_t lmin = 0+margin;
 		
 	if(mode == InitStrategy::RANDOM)
 	{

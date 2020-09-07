@@ -39,6 +39,7 @@ set(MULTIFOCUS_SRCS
 	src/processing/depth/filter.cpp
 	src/processing/depth/neighbors.cpp
 	src/processing/depth/initialization.cpp
+	src/processing/depth/export_cost_function.cpp
 )
 
 message(${LIBPLENO_LIBRARIES})
@@ -56,3 +57,10 @@ target_link_libraries(${ProjectId} ${MULTIFOCUS_LIBS} pthread)
 add_executable(depth_from_obs src/depth_from_observations.cpp ${MULTIFOCUS_SRCS})
 target_include_directories(depth_from_obs PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_from_obs ${MULTIFOCUS_LIBS} pthread)
+
+
+##################################################
+##################################################
+add_executable(depth_export src/depth_export.cpp ${MULTIFOCUS_SRCS})
+target_include_directories(depth_export PRIVATE ${MULTIFOCUS_INCDIRS})
+target_link_libraries(depth_export ${MULTIFOCUS_LIBS} pthread)

@@ -4,7 +4,7 @@ struct Depth { double z = 0.; };
 struct VirtualDepth { double v = 0.; };
 
 struct IndexPair {
-	std::size_t k=0, l=0;
+	std::size_t k, l;
 	
-	IndexPair(std::size_t k_, std::size_t l_): k{k_}, l{l_} {}
+	IndexPair(std::size_t k_ = 0u, std::size_t l_ = 0u): k{k_}, l{l_} {}
 };

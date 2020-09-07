@@ -35,6 +35,7 @@ bool BlurAwareDisparityCostError::operator()(
 	ErrorType& error
 ) const
 {    
+    constexpr double epsilon = 2.2204e-16;
     constexpr double maxv = 20.;
     constexpr double lens_border = 1.5; //1.5
 
@@ -162,10 +163,10 @@ bool BlurAwareDisparityCostError::operator()(
 	cv::threshold(warpmask, warpmask, 200, 255, cv::THRESH_BINARY);	
 
 //5) compute cost
-	const double normalization = 1. / (cv::sum(wmask)[0] + 1e-6); //number of pixel to take into account
+	const double normalization = 1. / (cv::sum(wmask)[0] + epsilon); //number of pixel to take into account
 	const double cost = cv::norm(fref, wedi, cv::NORM_L1, warpmask) * normalization; //normalized SAD
 
-	error[0] = cost * 100.;
+	error[0] = cost; //* 100.;
 	
 #if ENABLE_DEBUG_DISPLAY
 	Image costimg;

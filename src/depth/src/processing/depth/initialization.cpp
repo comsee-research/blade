@@ -173,6 +173,13 @@ double initialize_depth(
 	ObservationsParingStrategy mode
 )
 {
+#if USE_SAME_SEED 
+    static std::mt19937 mt;
+#else
+    static std::random_device rd;
+    static std::mt19937 mt(rd());
+#endif
+
 	const std::size_t I = mfpc.I();
 	const int W = std::floor(mfpc.mia().diameter());
 	
@@ -242,7 +249,10 @@ double initialize_depth(
 		
 	 	//evaluate observations, find min cost
 		const double stepv = (maxv - minv) / nbsample;
+		
+		std::uniform_real_distribution<double> perturbation(-stepv/2., stepv/2.);
 		maxv = maxv + 5.*stepv; //goes beyond to eliminate wrong hypotheses
+		minv = minv + perturbation(mt);
 		
 		double mincost = 1e9;
 		

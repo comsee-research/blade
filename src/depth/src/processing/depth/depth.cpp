@@ -312,7 +312,8 @@ void estimate_depth(
 	BeliefPropagationStrategy mode = BeliefPropagationStrategy::NONE;
 	
 	const unsigned int nthreads = std::thread::hardware_concurrency()-1;	
-//------------------------------------------------------------------------------	
+//------------------------------------------------------------------------------
+	auto t_start = std::chrono::high_resolution_clock::now();	
 	// Run depth estimation
 	std::vector<std::thread> threads;
 	for(unsigned int i=0; i< nthreads; ++i)
@@ -332,8 +333,11 @@ void estimate_depth(
 	// Wait for all thread to finish
 	for (std::thread & t : threads)
 		if (t.joinable()) t.join();
+		
+	auto t_end = std::chrono::high_resolution_clock::now();
+	const double computational_time = std::chrono::duration<double>(t_end-t_start).count();
 	
-	PRINT_INFO("=== Estimation finished! Displaying depth map...");	
+	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
 	display(dm);
 	
 //------------------------------------------------------------------------------	

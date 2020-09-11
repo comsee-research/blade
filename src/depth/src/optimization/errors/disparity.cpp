@@ -32,6 +32,7 @@ bool DisparityCostError::operator()(
 	ErrorType& error
 ) const
 {    
+    constexpr double epsilon = 2.2204e-16;
     constexpr double maxv = 20.;
     constexpr double lens_border = 1.5; //1.5
 
@@ -43,12 +44,12 @@ bool DisparityCostError::operator()(
 //0) Check hypotheses:
 	//0.1) Discard observation?
     const double eta = (mi_j.center - mi_i.center).norm() / (1.95 * radius);
-	if(eta > v and v > 2.)
+	if(eta > std::fabs(v) and std::fabs(v) > 2.)
 	{
 		return false;
 	}
 	//0.2) Is disparity estimation possible? Is object real?
-	if(std::fabs(v) < 2. or mfpc.v2obj(v) < 0.) 
+	if(std::fabs(v) < 2. or mfpc.v2obj(v) < mfpc.focal()) 
 	{
 		error[0] = 255. / v;
 		return true;
@@ -70,12 +71,12 @@ bool DisparityCostError::operator()(
 	P2D disparity = deltaC / v; 
 	
 	//check hypothesis
-	const double ratiodisp = disparity.norm() / (1.95 * radius);
-	if(ratiodisp > 1.) //Is edi reprojected in ref?
-	{
-		error[0] = std::exp(ratiodisp / 10.); 
-		return true;
-	}
+	//const double ratiodisp = disparity.norm() / (1.95 * radius);
+	//if(ratiodisp > 1.) //Is edi reprojected in ref?
+	//{
+	//	error[0] = std::exp(ratiodisp / 10.); 
+	//	return true;
+	//}
 
 	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disparity[0], 0., 1., disparity[1]); //Affine transformation
 	
@@ -91,7 +92,7 @@ bool DisparityCostError::operator()(
 	cv::threshold(warpmask, warpmask, 200, 255, cv::THRESH_BINARY);	
 
 //5) compute cost
-	const double normalization = 1. / (cv::sum(wmask)[0] + 1e-6); //number of pixel to take into account
+	const double normalization = 1. / (cv::sum(wmask)[0] + epsilon); //number of pixel to take into account
 	const double cost = cv::norm(flhs, wrhs, cv::NORM_L1, warpmask) * normalization; //normalized SAD
 
 	error[0] = cost;

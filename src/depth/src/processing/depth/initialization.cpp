@@ -10,6 +10,7 @@
 
 #include "optimization/depth.h" //lma
 #include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
+#include "optimization/errors/blurequalizationdisp.h" //BlurEqualizationDisparityCostError
 #include "optimization/errors/disparity.h" //DisparityCostError
 
 #define USE_SAME_SEED 1
@@ -181,11 +182,12 @@ double initialize_depth(
 #endif
 
 	const std::size_t I = mfpc.I();
-	const int W = std::floor(mfpc.mia().diameter());
+	const int W = std::ceil(mfpc.mia().diameter());
 	
 	const bool useBlur = (I > 0u); 
 	
-	using FunctorsBLADE = std::vector<BlurAwareDisparityCostError>;
+	using BladeError = BlurEqualizationDisparityCostError; //BlurAwareDisparityCostError; //
+	using FunctorsBLADE = std::vector<BladeError>;
 	using FunctorsDISP = std::vector<DisparityCostError>;
 	using Functors_t = std::variant<FunctorsBLADE, FunctorsDISP>;
 	
@@ -199,9 +201,7 @@ double initialize_depth(
 		using T = std::decay_t<decltype(functors)>;
 		using FunctorError_t = typename T::value_type;
 				
-	 	//compute ref observation
-	 	functors.reserve(neighs.size());
-	 	
+		//compute ref observation
 	 	MicroImage ref{
 			ck, cl,
 			mfpc.mia().nodeInWorld(ck,cl),
@@ -217,6 +217,8 @@ double initialize_depth(
 	 
 	 	if(mode == ObservationsParingStrategy::CENTRALIZED)
 	 	{	
+		 	functors.reserve(neighs.size());
+		 	
 		 	//for each neighbor, create observation
 		 	for(auto [nk, nl] : neighs)
 		 	{
@@ -242,6 +244,49 @@ double initialize_depth(
 				);			 	
 		 	}
 		}
+		else if (mode == ObservationsParingStrategy::ALL_PAIRS)
+		{
+			const std::size_t n = neighs.size() + 1;
+			std::vector<MicroImage> vmi; vmi.reserve(n);
+			std::vector<Image> vview; vview.reserve(n);
+			
+			vmi.emplace_back(ref); vview.emplace_back(refview);
+			
+			for(auto [nk, nl] : neighs)
+		 	{
+		 		MicroImage target{
+					nk, nl,
+					mfpc.mia().nodeInWorld(nk,nl),
+					mfpc.mia().radius(),
+					lens_type(I, nk, nl)
+				};
+				
+				Image targetview;
+				cv::getRectSubPix(
+					scene, cv::Size{W,W},  
+					cv::Point2d{target.center[0], target.center[1]}, targetview
+				);
+				
+				vmi.emplace_back(target); vview.emplace_back(targetview);
+			}
+
+			functors.reserve(neighs.size() * (neighs.size() - 1) / 2);
+			
+			//for each observation
+			for(std::size_t i = 0; i < vmi.size(); ++i)
+			{		
+				for(std::size_t j = i+1; j < vmi.size(); ++j)
+				{
+					//add in solver
+					functors.emplace_back(
+							vview[i], vview[j],
+							vmi[i], vmi[j],
+							mfpc
+					);
+				}
+			}	
+			functors.shrink_to_fit();
+		}
 		else
 		{
 			DEBUG_ASSERT(false, "Can't initialize depth, no other strategy implemented yet");
@@ -258,7 +303,7 @@ double initialize_depth(
 		
 	#if COMPUTE_STATS		
 		double maxcost = 0.;
-		std::vector<double> costs; costs.reserve(nbsample);
+		std::vector<double> costs; costs.reserve(nbsample+5);
 	#endif
 		
 		for(double v = minv; v <= maxv; v+=stepv)

@@ -8,3 +8,5 @@ struct IndexPair {
 	
 	IndexPair(std::size_t k_ = 0u, std::size_t l_ = 0u): k{k_}, l{l_} {}
 };
+
+using P4D = Eigen::Vector4d;

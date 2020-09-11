@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
 	}
 	
 	do {
-		export_cost_function(mfpc, pictures[0],  mfpc.obj2v(maxd), mfpc.obj2v(mind), 1000);
+		export_cost_function(mfpc, pictures[0],  mfpc.obj2v(maxd), mfpc.obj2v(mind), 2500);
 	} while (not finished());
 
 	PRINT_INFO("========= EOF =========");

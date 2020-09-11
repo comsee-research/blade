@@ -141,7 +141,7 @@ bool BlurAwareDisparityCostError::operator()(
 	
 //4) warp image according to depth hypothesis
 	//4.1) compute disparity and transformation
-	const P2D deltaC = mi_j.center - mi_i.center;
+	const P2D deltaC = mi_i.center - mi_j.center;
 	P2D disparity = deltaC / v; 
 
 	if(not isOrdered) //reoriente the disparity vector
@@ -153,8 +153,8 @@ bool BlurAwareDisparityCostError::operator()(
 	
 	//4.2) warp mask and edi	
 	Image wmask, wedi;
-	cv::warpAffine(fmask, wmask, M, fmask.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
-	cv::warpAffine(fedi, wedi, M, fedi.size(), cv::INTER_LINEAR, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
+	cv::warpAffine(fmask, wmask, M, fmask.size(), cv::INTER_LINEAR + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
+	cv::warpAffine(fedi, wedi, M, fedi.size(), cv::INTER_LINEAR + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
 	
 	//re-binarize mask
 	Image warpmask;

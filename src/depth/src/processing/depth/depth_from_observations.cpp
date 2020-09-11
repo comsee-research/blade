@@ -3,6 +3,7 @@
 //optimization
 #include "optimization/depth.h"
 #include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
+#include "optimization/errors/blurequalizationdisp.h" //BlurEqualizationDisparityCostError
 #include "optimization/errors/disparity.h" //DisparityCostError
 
 #include <pleno/geometry/mia.h> //MicroImage
@@ -21,7 +22,7 @@
 
 constexpr double 	AUTOMATIC_LAMBDA_SCALE 	= -1.;
 
-#define EXPORT_COST_FUNCTION 	0
+#define EXPORT_COST_FUNCTION 	1
 #define DISPLAY_FRAME			0
 
 //******************************************************************************
@@ -36,9 +37,9 @@ void optimize_depths(
 	const std::vector<Image>& images
 )
 {
-	constexpr int W = 23u;
+	constexpr int W = 24u;
 	
-	using FunctorError_t = BlurAwareDisparityCostError;
+	using FunctorError_t = BlurEqualizationDisparityCostError; //BlurAwareDisparityCostError;
 	using Solver_t = lma::Solver<FunctorError_t>;
 	
 	//split observations according to frame index
@@ -49,7 +50,7 @@ void optimize_depths(
 	//for each frame
 	for(auto & [frame, baps]: obs)
 	{ 		
-		if (frame != 9) continue; //frame != 8 and 
+		if (frame != 7) continue; //frame != 8 and 
 		
 		PRINT_INFO("Estimation for frame f = " << frame); //<< ", cluster = " << cluster);
 #if DISPLAY_FRAME
@@ -62,7 +63,7 @@ void optimize_depths(
 #if EXPORT_COST_FUNCTION
 		std::vector<FunctorError_t> functors; functors.reserve(20456);
 #endif
-		Solver_t solver{AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12};
+		Solver_t solver{AUTOMATIC_LAMBDA_SCALE, 50, 1.0 - 1e-13};
 		
 		VirtualDepth depth; depth.v = depths[frame].v;
 		
@@ -71,11 +72,9 @@ void optimize_depths(
 		for(const auto& ob : baps)
 			clusters[ob.cluster].push_back(ob);	
 		
-		int stop = 0;
 		//for each cluster
 		for(auto & [cluster, obs_] : clusters)
 		{		
-			if(stop++>0) break;
 			//for each observation
 			for(std::size_t i = 0; i < obs_.size() ; ++i)
 			{
@@ -137,9 +136,9 @@ void optimize_depths(
 		const double optimized_depth = depth.v; 
 		PRINT_INFO("Optimized depth for frame ("<< frame<<"), v = " << optimized_depth << ", z = " << mfpc.v2obj(optimized_depth));
 		
-		constexpr double minv = 2.05;
+		constexpr double minv = - 2. * 2.05;
 		const double maxz = mfpc.v2obj(minv);
-		const double minz = 4. * std::ceil(mfpc.focal());
+		const double minz = 8. * std::ceil(mfpc.focal());
 		const double maxv = mfpc.obj2v(minz);
 #if EXPORT_COST_FUNCTION		
 		functors.shrink_to_fit();
@@ -151,7 +150,8 @@ void optimize_depths(
 		PRINT_INFO("Evaluate depth from z = "<< minz <<" (v = "<< maxv <<"), to z = " << maxz << " (v = " << minv << ")" << std::endl);
 		for(double v = minv; v < maxv; v+=stepv)
 		{
-			//double v = mfpc.obj2v(z);
+			if(std::fabs(v) < 2.) continue;
+			
 			typename FunctorError_t::ErrorType err;
 			VirtualDepth depth{v};
 			RMSE cost{0., 0};
@@ -166,6 +166,7 @@ void optimize_depths(
 			xys.emplace_back(v, mfpc.v2obj(v), cost.get());
 		}
 		
+		PRINT_INFO("Saving data...");
 		std::ofstream ofs("costfunction-"+std::to_string(getpid())+"-frame-"+std::to_string(frame)+".csv"); //+"-cluster-"+std::to_string(cluster)+".csv");
 		if (!ofs.good())
 			throw std::runtime_error(std::string("Cannot open file costfunction.csv"));
@@ -177,6 +178,7 @@ void optimize_depths(
 #endif	
 
 FORCE_GUI(true);
+		PRINT_INFO("Displaying depth map...");
 		RawCoarseDepthMap dm{mfpc, minv, maxv};
 		for(auto& ob: baps) dm.depth(ob.k, ob.l) = optimized_depth;
 		display(dm);
@@ -200,7 +202,7 @@ void estimate_depth_from_observations(
 	double mdfp = 0.; //mean distance focal plane
 	for(int i =0; i < mfpc.I(); ++i) mdfp +=  mfpc.focal_plane(i);
 	mdfp /= mfpc.I();
-	double v = mfpc.obj2v(mdfp);
+	double v = mfpc.obj2v(mdfp*0.9);
 	DEBUG_VAR(mdfp); DEBUG_VAR(v);
 	
 	std::vector<VirtualDepth> depths(images.size());

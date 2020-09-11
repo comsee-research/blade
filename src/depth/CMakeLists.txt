@@ -32,6 +32,7 @@ set(MULTIFOCUS_SRCS
 	##---------------
 	src/optimization/depth.cpp
 	src/optimization/errors/blurawaredisp.cpp
+	src/optimization/errors/blurequalizationdisp.cpp
 	src/optimization/errors/disparity.cpp
 	##---------------
 	src/processing/depth/depth.cpp

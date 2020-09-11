@@ -11,6 +11,7 @@
 
 #include "optimization/depth.h" //lma
 #include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
+#include "optimization/errors/blurequalizationdisp.h" //BlurEqualizationDisparityCostError
 #include "optimization/errors/disparity.h" //DisparityCostError
 
 #include "../../types.h"
@@ -80,11 +81,12 @@ void export_cost_function(
 )
 {
 	const std::size_t I = mfpc.I();
-	const int W = std::floor(mfpc.mia().diameter());
+	const int W = std::ceil(mfpc.mia().diameter()); DEBUG_VAR(W);
 	
 	const bool useBlur = (I > 0u); 
 	
-	using FunctorsBLADE = std::vector<BlurAwareDisparityCostError>;
+	using BladeError = BlurEqualizationDisparityCostError; //BlurAwareDisparityCostError; //
+	using FunctorsBLADE = std::vector<BladeError>;
 	using FunctorsDISP = std::vector<DisparityCostError>;
 	using Functors_t = std::variant<FunctorsBLADE, FunctorsDISP>;
 	
@@ -94,15 +96,13 @@ void export_cost_function(
 	
 	
 	const auto [ck, cl] = extract_micro_image_indexes(scene, mfpc.mia());
-	std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, maxv); 
+	std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, 3.); //FIXED NEIGBORHOOD
 		
 	std::visit([&](auto&& functors) { 
 		using T = std::decay_t<decltype(functors)>;
 		using FunctorError_t = typename T::value_type;
 				
-	 	//compute ref observation
-	 	functors.reserve(neighs.size());
-	 	
+	 	//compute ref observation	 	
 	 	MicroImage ref{
 			ck, cl,
 			mfpc.mia().nodeInWorld(ck,cl),
@@ -118,6 +118,8 @@ void export_cost_function(
 	 
 	 	if(mode == ObservationsParingStrategy::CENTRALIZED)
 	 	{	
+	 		functors.reserve(neighs.size());
+	 		
 		 	//for each neighbor, create observation
 		 	for(auto [nk, nl] : neighs)
 		 	{
@@ -143,7 +145,7 @@ void export_cost_function(
 		}
 		else if (mode == ObservationsParingStrategy::ALL_PAIRS)
 		{
-			const std::size_t n = neighs.size() * (neighs.size() - 1) / 2;
+			const std::size_t n = neighs.size() + 1;
 			std::vector<MicroImage> vmi; vmi.reserve(n);
 			std::vector<Image> vview; vview.reserve(n);
 			
@@ -166,7 +168,9 @@ void export_cost_function(
 				
 				vmi.emplace_back(target); vview.emplace_back(targetview);
 			}
-
+			
+			functors.reserve(neighs.size() * (neighs.size() - 1) / 2);
+			
 			//for each observation
 			for(std::size_t i = 0; i < vmi.size(); ++i)
 			{		
@@ -179,7 +183,8 @@ void export_cost_function(
 							mfpc
 					);
 				}
-			}	
+			}
+			functors.shrink_to_fit();	
 		}
 		else
 		{
@@ -191,7 +196,7 @@ void export_cost_function(
 		maxv = maxv + 5.*stepv; //goes beyond to eliminate wrong hypotheses
 	
 		functors.shrink_to_fit();
-		std::vector<P3D> xys; xys.reserve(functors.size());
+		std::vector<P4D> xys; xys.reserve(functors.size());
 		
 		PRINT_INFO("=== Computing cost function at ("<<ck<<", "<<cl<< ") ...");
 		for(double v = minv; v <= maxv; v+=stepv)
@@ -209,7 +214,7 @@ void export_cost_function(
 					cost.add(err[0]);	
 				}				
 			}
-			xys.emplace_back(v, mfpc.v2obj(v), cost.get());
+			xys.emplace_back(static_cast<double>(v), mfpc.v2obj(v), cost.get(), static_cast<double>(cost.size));
 		}
 		
 		PRINT_INFO("=== Saving cost function...");
@@ -217,8 +222,8 @@ void export_cost_function(
 		if (!ofs.good())
 			throw std::runtime_error(std::string("Cannot open file costfunction.csv"));
 		
-		ofs << "v,depth,cost\n";
-		for(auto& xy: xys) ofs << xy[0] << "," << xy[1]  << "," << xy[2]<< std::endl;
+		ofs << "v,depth,cost,nbobs\n";
+		for(auto& xy: xys) ofs << xy[0] << "," << xy[1]  << "," << xy[2] << "," << xy[3] << std::endl;
 		
 		ofs.close();	
 

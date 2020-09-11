@@ -6,6 +6,7 @@
 //optimization
 #include "optimization/depth.h"
 #include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
+#include "optimization/errors/blurequalizationdisp.h" //BlurEqualizationDisparityCostError
 #include "optimization/errors/disparity.h" //DisparityCostError
 
 #include <pleno/geometry/mia.h> //MicroImage
@@ -29,8 +30,11 @@
 
 constexpr double 		AUTOMATIC_LAMBDA_SCALE 	= -1.;
 
-#define	DISPLAY_FRAME	1
-#define VERBOSE_OPTIM	0
+#define	DISPLAY_FRAME			0
+#define USE_OPTIM				1
+#define VERBOSE_OPTIM			0
+#define USE_LEVENBERG_MARQUARDT 0
+#define ENABLE_MULTI_THREAD 	1
 
 //******************************************************************************
 //******************************************************************************
@@ -44,16 +48,17 @@ void optimize_depth(
 )
 { 	
 	const std::size_t I = mfpc.I();
-	const int W = std::floor(mfpc.mia().diameter());
+	const int W = std::ceil(mfpc.mia().diameter());
 	
 	const bool useBlur = (I > 0u); 
 	
-	using SolverBLADE = lma::Solver<BlurAwareDisparityCostError>;
+	using BladeError = BlurEqualizationDisparityCostError; //BlurAwareDisparityCostError; //
+	using SolverBLADE = lma::Solver<BladeError>;
 	using SolverDISP = lma::Solver<DisparityCostError>;
 	using Solver_t = std::variant<std::monostate, SolverBLADE, SolverDISP>;
 	
 	Solver_t vsolver;
-		if(useBlur) vsolver.emplace<SolverBLADE>(AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12);
+		if(useBlur) vsolver.emplace<SolverBLADE>(1., 50, 1.0 - 1e-12);
 		else vsolver.emplace<SolverDISP>(AUTOMATIC_LAMBDA_SCALE, 150, 1.0 - 1e-12);  
 
 	//init virtual depth
@@ -78,7 +83,7 @@ void optimize_depth(
 	if constexpr (not std::is_same_v<T, std::monostate>) 
 	{
 		using FunctorError_t = typename std::conditional<std::is_same_v<T, SolverBLADE>, 
-			BlurAwareDisparityCostError, DisparityCostError>::type;
+			BladeError, DisparityCostError>::type;
 	
 		if(mode == ObservationsParingStrategy::CENTRALIZED)
 		{
@@ -188,12 +193,13 @@ void compute_depthmap(
 				
 		//Already computed, nothing to do
 		if(dm.state(ck,cl) == DepthInfo::State::COMPUTED) continue;
-		
+
+#if USE_OPTIM		
 		//Compute first hypothesis using inner ring
 		if(dm.state(ck,cl) == DepthInfo::State::UNINITIALIZED)
 		{
 			//get neighbors
-		 	std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, 4.); 
+		 	std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, 3.); 
 		 	
 		 	double hypothesis = initialize_depth(
 		 		neighs, mfpc, scene, 
@@ -214,15 +220,49 @@ void compute_depthmap(
 		 	dm.depth(ck, cl) = hypothesis;
 		 	dm.state(ck, cl) = DepthInfo::State::INITIALIZED;				
 		}
+#else
+		//Compute first hypothesis using inner ring
+		if(dm.state(ck,cl) == DepthInfo::State::UNINITIALIZED)
+		{
+			//get neighbors
+		 	std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, 3.); 
+		 	
+		 	double hypothesis = initialize_depth(
+		 		neighs, mfpc, scene, 
+		 		ck, cl,
+		 		dm.min_depth(), dm.max_depth(), 15.
+		 	);
+		 	
+		 	if(dm.is_valid_depth(hypothesis)) dm.depth(ck, cl) = hypothesis;
+		 	
+		 	dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
+		 	
+		 	for(auto &n: neighs) 
+		 	{
+		 		if(dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED) 
+		 			microimages.push(n);
+		 	}		
+		}
+#endif 
 		
 		//Compute depth hypothesis
 		if(dm.state(ck,cl) == DepthInfo::State::INITIALIZED)
 		{
 			double depth = dm.depth(ck, cl);
-			std::vector<IndexPair> neighs = neighbors(dm.mia(), ck, cl, depth);
-			
+			std::vector<IndexPair> neighs = neighbors(dm.mia(), ck, cl, 3.); //depth);
+
+#if USE_LEVENBERG_MARQUARDT			
 			optimize_depth(neighs, mfpc, scene, ck, cl, depth);
-			
+#else
+			const double stepv = (dm.max_depth() - dm.min_depth()) / 15.;
+			const double minv = depth - stepv;
+			const double maxv = depth + stepv - 5. * (2. * stepv) / 15.;
+			depth = initialize_depth(
+		 		neighs, mfpc, scene, 
+		 		ck, cl,
+		 		minv, maxv, 15.
+		 	);
+#endif		
 			if(dm.is_valid_depth(depth)) dm.depth(ck, cl) = depth;
 		 	dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
 			
@@ -310,8 +350,12 @@ void estimate_depth(
 	RawCoarseDepthMap dm{mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};
 	
 	BeliefPropagationStrategy mode = BeliefPropagationStrategy::NONE;
-	
+
+#if ENABLE_MULTI_THREAD
 	const unsigned int nthreads = std::thread::hardware_concurrency()-1;	
+#else
+	const unsigned int nthreads = 1;
+#endif
 //------------------------------------------------------------------------------
 	auto t_start = std::chrono::high_resolution_clock::now();	
 	// Run depth estimation

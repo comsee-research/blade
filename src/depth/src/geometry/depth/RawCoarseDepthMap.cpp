@@ -22,14 +22,7 @@ RawCoarseDepthMap::RawCoarseDepthMap(const RawCoarseDepthMap& o)
 	compute_colomap();
 	
 	//copy depth map data
-	for(std::size_t k = 0; k < mia().width(); ++k)
-	{
-		for(std::size_t l = 0; l < mia().height(); ++l)
-		{
-			depth(k,l) = o.depth(k,l);
-			state(k,l) = o.state(k,l);
-		}
-	}
+	copy_map(o);
 }
 
 RawCoarseDepthMap::RawCoarseDepthMap(RawCoarseDepthMap&& o)
@@ -44,9 +37,22 @@ RawCoarseDepthMap::RawCoarseDepthMap(RawCoarseDepthMap&& o)
 
 //******************************************************************************
 // accessors
-//******************************************************************************	
+//******************************************************************************
+const PlenopticCamera& RawCoarseDepthMap::pcm() const { return mfpc; }	
 const MIA& RawCoarseDepthMap::mia() const { return mfpc.mia(); }
 const cv::Mat& RawCoarseDepthMap::color_map() const { return colormap; }
+
+void RawCoarseDepthMap::copy_map(const RawCoarseDepthMap& o)
+{
+	for(std::size_t k = 0; k < mia().width(); ++k)
+	{
+		for(std::size_t l = 0; l < mia().height(); ++l)
+		{
+			depth(k,l) = o.depth(k,l);
+			state(k,l) = o.state(k,l);
+		}
+	}
+}
 
 double RawCoarseDepthMap::depth(std::size_t k, std::size_t l) const { return map(k,l).depth; }
 double& RawCoarseDepthMap::depth(std::size_t k, std::size_t l) { return map(k,l).depth; }
@@ -58,9 +64,9 @@ DepthInfo RawCoarseDepthMap::depth_with_info(std::size_t k, std::size_t l) const
 DepthInfo& RawCoarseDepthMap::depth_with_info(std::size_t k, std::size_t l) { return map(k,l); }
 
 double RawCoarseDepthMap::min_depth() const { return min_depth_; }
-void RawCoarseDepthMap::min_depth(double mind) { min_depth_ = mind; }
+void RawCoarseDepthMap::min_depth(double mind) { min_depth_ = mind; compute_colomap();}
 double RawCoarseDepthMap::max_depth() const { return max_depth_; }
-void RawCoarseDepthMap::max_depth(double maxd) { max_depth_ = maxd; }
+void RawCoarseDepthMap::max_depth(double maxd) { max_depth_ = maxd; compute_colomap();}
 
 
 //******************************************************************************
@@ -158,4 +164,50 @@ bool RawCoarseDepthMap::is_disparity_estimation_possible(double d) const
 {
 	if(is_metric_depth()) d = mfpc.obj2v(d); //convert to virtual depth
 	return (std::fabs(d) > minimal_resolvable_abs_depth);	
+}
+
+
+//******************************************************************************
+// save/load functions
+//******************************************************************************
+void save(v::OutputArchive& archive, const DepthInfo& di)
+{
+	std::uint16_t istate = di.state;
+	archive
+		("depth", di.depth)
+		("state", istate);
+}
+void load(v::InputArchive& archive, DepthInfo& di)
+{
+	std::uint16_t istate;
+	archive
+		("depth", di.depth)
+		("state", istate);
+		
+	di.state = DepthInfo::State(istate);
+}
+void save(v::OutputArchive& archive, const RawCoarseDepthMap& dm)
+{
+	int cols = dm.map.cols();
+	int rows =  dm.map.rows();
+	int n = cols * rows;
+	
+	AlignedVector<DepthInfo> depths(n);
+	RawCoarseDepthMap::DepthMapContainer::Map(depths.data(),1,n) = dm.map;
+	
+	archive
+		("map", depths)
+		("cols", cols)
+		("rows", rows);
+}
+void load(v::InputArchive& archive, RawCoarseDepthMap& dm)
+{
+	AlignedVector<DepthInfo> depths;
+	int cols, rows;
+	archive
+		("map", depths)
+		("cols", cols)
+		("rows", rows);
+		
+	dm.map = Eigen::Map<RawCoarseDepthMap::DepthMapContainer>(&depths[0], rows, cols);
 }

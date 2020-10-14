@@ -10,7 +10,7 @@
 struct DepthInfo {
 	static constexpr double NO_DEPTH = 0.;
 	
-	enum State : std::uint8_t {
+	enum State : std::uint16_t {
 		UNINITIALIZED = 0, INITIALIZED, COMPUTED
 	};	
 	
@@ -18,9 +18,13 @@ struct DepthInfo {
 	State state = UNINITIALIZED;	
 };
 
-class RawCoarseDepthMap {	
+void save(v::OutputArchive& archive, const DepthInfo& di);
+void load(v::InputArchive& archive, DepthInfo& di);
+
+class RawCoarseDepthMap {
+public:	
 	using DepthMapContainer = Eigen::Matrix<DepthInfo, Eigen::Dynamic, Eigen::Dynamic>;
-	
+private:
 	static constexpr double minimal_resolvable_abs_depth = 2.;
 
 	const PlenopticCamera& mfpc;	
@@ -42,8 +46,10 @@ public:
 	RawCoarseDepthMap(const RawCoarseDepthMap& o);
 	RawCoarseDepthMap(RawCoarseDepthMap&& o);
 
-//******************************************************************************		
+//******************************************************************************	
+	const PlenopticCamera& pcm() const;	
 	const MIA& mia() const;
+		
 	const cv::Mat& color_map() const;
 
 	double depth(std::size_t k, std::size_t l) const;
@@ -57,8 +63,11 @@ public:
 	
 	double min_depth() const;
 	void min_depth(double mind);
+	
 	double max_depth() const;
 	void max_depth(double maxd);
+	
+	void copy_map(const RawCoarseDepthMap& o);
 	
 //******************************************************************************	
 	bool is_virtual_depth() const;
@@ -68,7 +77,7 @@ public:
 //******************************************************************************	
 	Image as_image() const;
 	RawCoarseDepthMap as_metric() const;
-	
+
 protected:
 //******************************************************************************
 	void compute_colomap();
@@ -76,6 +85,12 @@ protected:
 	std::uint8_t scale_depth(double d) const;
 	
 	bool is_depth_out_of_bounds(double d) const;
-	bool is_disparity_estimation_possible(double d) const;
-			
+	bool is_disparity_estimation_possible(double d) const;	
+	
+//******************************************************************************
+	friend void save(v::OutputArchive& archive, const RawCoarseDepthMap& dm);
+	friend void load(v::InputArchive& archive, RawCoarseDepthMap& dm);		
 };
+
+void save(v::OutputArchive& archive, const RawCoarseDepthMap& dm);
+void load(v::InputArchive& archive, RawCoarseDepthMap& dm);

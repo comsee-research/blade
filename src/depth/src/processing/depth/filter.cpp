@@ -3,7 +3,8 @@
 #include <pleno/processing/tools/stats.h>
 
 #include "neighbors.h"
-
+//******************************************************************************
+//******************************************************************************
 RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size)
 {
 	RawCoarseDepthMap filtereddm{dm};
@@ -37,6 +38,14 @@ RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size)
 	return filtereddm;	
 }
 
+void inplace_median_filter_depth(RawCoarseDepthMap& dm, double size)
+{
+	RawCoarseDepthMap temp = median_filter_depth(dm, size);
+	temp.copy_map(dm);
+}
+
+//******************************************************************************
+//******************************************************************************
 RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
 {
 	RawCoarseDepthMap filtereddm{dm}; //depths are copied
@@ -68,10 +77,25 @@ RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
 	return filtereddm;	
 }
 
+void inplace_erosion_filter_depth(RawCoarseDepthMap& dm, double size)
+{
+	RawCoarseDepthMap temp = erosion_filter_depth(dm, size);
+	temp.copy_map(dm);
+} 
+
+//******************************************************************************
+//******************************************************************************
 RawCoarseDepthMap minmax_filter_depth(const RawCoarseDepthMap& dm, double min, double max)
 {
-	RawCoarseDepthMap filtereddm{dm}; //depths are copied
 	
+	RawCoarseDepthMap temp{dm};
+	inplace_minmax_filter_depth(temp, min, max);
+	
+	return temp;
+}
+
+void inplace_minmax_filter_depth(RawCoarseDepthMap& dm, double min, double max)
+{	
 	constexpr std::size_t margin = 2;
 	
 	const std::size_t kmax = dm.mia().width()-1-margin; 
@@ -84,9 +108,7 @@ RawCoarseDepthMap minmax_filter_depth(const RawCoarseDepthMap& dm, double min, d
 		for(std::size_t l = lmin; l < lmax; ++l)
 		{
 			const double d = dm.depth(k,l);
-			if(d < min or d > max) filtereddm.depth(k,l) = DepthInfo::NO_DEPTH;
+			if(d < min or d > max) dm.depth(k,l) = DepthInfo::NO_DEPTH;
 		}
 	}
-	
-	return filtereddm;	
 }

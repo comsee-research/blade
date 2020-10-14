@@ -6,8 +6,9 @@
 
 inline void display(const RawCoarseDepthMap& dm)
 {
+GUI(
 	constexpr std::size_t BORDER_MARGIN = 0;
-	
+
 	const std::size_t kmax = dm.mia().width() - BORDER_MARGIN; 
 	const std::size_t kmin = 0 + BORDER_MARGIN;
 	const std::size_t lmax = dm.mia().height() - BORDER_MARGIN; 
@@ -79,4 +80,5 @@ inline void display(const RawCoarseDepthMap& dm)
 	}
 	
 	Viewer::context().layer(Viewer::layer()++).update();  
+);
 }

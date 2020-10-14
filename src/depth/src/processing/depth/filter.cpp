@@ -19,8 +19,11 @@ RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size)
 	{
 		for(std::size_t l = lmin; l < lmax; ++l)
 		{
+			double sz = size;
+			if (size == AUTOMATIC_FILTER_SIZE) sz = dm.depth(k,l);
+			
 			//get neighbors
-		 	std::vector<IndexPair> neighs = neighbors(dm.mia(), k, l, size, size); 
+		 	std::vector<IndexPair> neighs = neighbors(dm.mia(), k, l, sz, sz); 
 			
 			std::vector<double> depths; depths.reserve(neighs.size()+1);
 			depths.emplace_back(dm.depth(k,l));
@@ -52,7 +55,11 @@ RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
 			if(dm.depth(k,l) == DepthInfo::NO_DEPTH)
 			{
 				//get neighbors
-		 		std::vector<IndexPair> neighs = neighbors(dm.mia(), k, l, size, size); 
+		 		std::vector<IndexPair> neighs;
+		 		
+		 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(dm.mia(), k, l);
+		 		else neighs = neighbors(dm.mia(), k, l, size, size); 
+		 		
 		 		for(auto& n: neighs) filtereddm.depth(n.k, n.l) = DepthInfo::NO_DEPTH;
 			}
 		}

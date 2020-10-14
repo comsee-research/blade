@@ -10,11 +10,45 @@
 
 #include "optimization/depth.h" //lma
 #include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
-#include "optimization/errors/blurequalizationdisp.h" //BlurEqualizationDisparityCostError
 #include "optimization/errors/disparity.h" //DisparityCostError
+
+#include "depth.h"
+#include "pairing.h" //make_functors
+#include "search.h" //gss, bruteforce
 
 #define USE_SAME_SEED 1
 #define COMPUTE_STATS 0
+
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+std::pair<double,double> initialize_min_max_distance(const PlenopticCamera& mfpc)
+{
+	constexpr double nearfocusd = 1e3;
+	constexpr double farfocusd = 5e3; 
+	
+	const double d = mfpc.distance_focus() * 2.;
+	double mind, maxd;
+	
+	if(d < nearfocusd) //short distances
+	{
+		maxd = mfpc.distance_focus() * 1.2;
+		mind = std::ceil(mfpc.focal()) * 2.; //mfpc.v2obj(12.); //
+	}
+	else if (d < farfocusd) //middle distances
+	{
+		maxd = mfpc.distance_focus() * 2.;
+		mind = 6. * std::ceil(mfpc.focal());
+	}
+	else //far distances
+	{
+		maxd = farfocusd;
+		mind = 8. * std::ceil(mfpc.focal()); 
+	}
+	
+	return {mind, maxd};
+}
 
 //******************************************************************************
 //******************************************************************************
@@ -35,41 +69,47 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
 	const std::size_t lmax = mia.height()-1-margin; 
 	const std::size_t lmin = 0+margin;
 		
-	if(mode == InitStrategy::RANDOM)
+	if (mode == InitStrategy::RANDOM)
 	{
 		std::uniform_int_distribution<std::size_t> distk(kmin, kmax);
 		std::uniform_int_distribution<std::size_t> distl(lmin, lmax);
 		
 		return {distk(mt), distk(mt)};
 	}
+	else if (mode == InitStrategy::FROM_LEFT_BORDER)
+	{		
+		const std::size_t stepl = (lmax - lmin) / (n+1);
+		const std::size_t stepk = (kmax - kmin) / 2;
+		return {kmin + (i%2)*stepk , lmin + i*stepl};	
+	}
 	else if (mode == InitStrategy::REGULAR_GRID)
 	{
 		std::vector<IndexPair> v; v.reserve(n);
 		
-		if(n == 1) v.emplace_back(kmin+(kmax-kmin)/2, lmin+(lmax-lmin)/2);
+		if (n == 1) v.emplace_back(kmin+(kmax-kmin)/2, lmin+(lmax-lmin)/2);
 		else if(n == 2) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/3 , lmin + (lmax-lmin)/2);
 			v.emplace_back(kmin + 2 * (kmax-kmin)/3 , lmin + (lmax-lmin)/2);
 		}
-		else if(n == 3) {
+		else if (n == 3) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4);
 		}
-		else if(n == 4) {
+		else if (n == 4) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/3 , lmin + 1 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 2 * (kmax-kmin)/3 , lmin + 1 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 1 * (kmax-kmin)/3 , lmin + 2 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 2 * (kmax-kmin)/3 , lmin + 2 * (lmax-lmin)/3);
 		}
-		else if(n == 5) {
+		else if (n == 5) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 1 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + (kmax-kmin)/2 , lmin + (lmax-lmin)/2);
 		}
-		else if(n == 6) {
+		else if (n == 6) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 6 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/3);
@@ -77,7 +117,7 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
 			v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 2 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 2 * (lmax-lmin)/3);
 		}
-		else if(n == 7) {
+		else if (n == 7) {
 			v.emplace_back(kmin + 2 * (kmax-kmin)/6 , lmin + 1 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 4 * (kmax-kmin)/6 , lmin + 1 * (lmax-lmin)/4);
 			//
@@ -88,7 +128,7 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
 			v.emplace_back(kmin + 2 * (kmax-kmin)/6 , lmin + 3 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 4 * (kmax-kmin)/6 , lmin + 3 * (lmax-lmin)/4);
 		}
-		else if(n == 8) {
+		else if (n == 8) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 2 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/3);
@@ -98,7 +138,7 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
 			v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 2 * (lmax-lmin)/3);
 			v.emplace_back(kmin + 4 * (kmax-kmin)/5 , lmin + 2 * (lmax-lmin)/3);
 		}
-		else if(n == 9) {
+		else if (n == 9) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4); 
@@ -109,7 +149,7 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
 			v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4);
 		}
-		else if(n == 10) {
+		else if (n == 10) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 1 * (lmax-lmin)/4);
@@ -123,7 +163,7 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
 			v.emplace_back(kmin + 2 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + 3 * (kmax-kmin)/4 , lmin + 3 * (lmax-lmin)/4);
 		}
-		else if(n == 11) {
+		else if (n == 11) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + 2 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
@@ -138,7 +178,7 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
 			v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + 4 * (kmax-kmin)/5 , lmin + 3 * (lmax-lmin)/4);
 		}
-		else if(n == 12) {
+		else if (n == 12) {
 			v.emplace_back(kmin + 1 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4); 
 			v.emplace_back(kmin + 2 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
 			v.emplace_back(kmin + 3 * (kmax-kmin)/5 , lmin + 1 * (lmax-lmin)/4);
@@ -166,204 +206,54 @@ IndexPair initialize_kl(std::size_t i, std::size_t n, const MIA& mia, InitStrate
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
-double initialize_depth(
+void initialize_depth(
+	VirtualDepth& depth, double* cost, double* sigma, //in/out
+	//--------------------------------------------------------------------------
 	const std::vector<IndexPair>& neighs, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t ck, std::size_t cl,
 	double minv, double maxv, double nbsample,
-	ObservationsParingStrategy mode
+	ObservationsPairingStrategy pairing,
+	SearchStrategy search
 )
 {
+	constexpr double nbsupplsample = 5.; 
+	
 #if USE_SAME_SEED 
     static std::mt19937 mt;
 #else
     static std::random_device rd;
     static std::mt19937 mt(rd());
 #endif
-
-	const std::size_t I = mfpc.I();
-	const int W = std::ceil(mfpc.mia().diameter());
 	
-	const bool useBlur = (I > 0u); 
+	const double stepv = (maxv - minv) / nbsample;
 	
-	using BladeError = BlurEqualizationDisparityCostError; //BlurAwareDisparityCostError; //
-	using FunctorsBLADE = std::vector<BladeError>;
-	using FunctorsDISP = std::vector<DisparityCostError>;
-	using Functors_t = std::variant<FunctorsBLADE, FunctorsDISP>;
+	std::uniform_real_distribution<double> perturbation(-stepv / 2., stepv / 2.);
+	maxv = maxv + nbsupplsample * stepv; //goes beyond to eliminate wrong hypotheses
+	minv = minv + perturbation(mt);	
 	
-	Functors_t vfunctor;
-		if(useBlur) vfunctor.emplace<FunctorsBLADE>(FunctorsBLADE{});
-		else vfunctor.emplace<FunctorsDISP>(FunctorsDISP{});  
+	if (search == SearchStrategy::BRUTE_FORCE)
+	{
+		bruteforce_depth(depth, cost, sigma, 
+			neighs, mfpc, scene, 
+			ck, cl, minv, maxv, nbsample + nbsupplsample, 
+			pairing
+		);	
+	}
+	else if (search == SearchStrategy::GOLDEN_SECTION) 
+	{
+		gss_depth(
+			depth, cost, sigma, 
+			neighs, mfpc, scene, 
+			ck, cl, minv, maxv, std::sqrt(0.1),
+			pairing		
+		);		
+	}
+	else 
+	{
+		PRINT_WARN("No initialization implemented for " << search);
+	}
 	
-	double hypothesis = 0.;
-		
-	std::visit([&](auto&& functors) { 
-		using T = std::decay_t<decltype(functors)>;
-		using FunctorError_t = typename T::value_type;
-				
-		//compute ref observation
-	 	MicroImage ref{
-			ck, cl,
-			mfpc.mia().nodeInWorld(ck,cl),
-			mfpc.mia().radius(),
-			lens_type(I, ck, cl)
-		};
-		
-		Image refview;
-		cv::getRectSubPix(
-			scene, cv::Size{W,W}, 
-			cv::Point2d{ref.center[0], ref.center[1]}, refview
-		);
-	 
-	 	if(mode == ObservationsParingStrategy::CENTRALIZED)
-	 	{	
-		 	functors.reserve(neighs.size());
-		 	
-		 	//for each neighbor, create observation
-		 	for(auto [nk, nl] : neighs)
-		 	{
-		 		MicroImage target{
-					nk, nl,
-					mfpc.mia().nodeInWorld(nk,nl),
-					mfpc.mia().radius(),
-					lens_type(I, nk, nl)
-				};
-				
-				Image targetview;
-				cv::getRectSubPix(
-					scene, cv::Size{W,W}, 
-					cv::Point2d{target.center[0], target.center[1]}, targetview
-				);
-				
-				functors.emplace_back(
-					//FunctorError_t{
-						refview, targetview,
-						ref, target,
-						mfpc
-					//}
-				);			 	
-		 	}
-		}
-		else if (mode == ObservationsParingStrategy::ALL_PAIRS)
-		{
-			const std::size_t n = neighs.size() + 1;
-			std::vector<MicroImage> vmi; vmi.reserve(n);
-			std::vector<Image> vview; vview.reserve(n);
-			
-			vmi.emplace_back(ref); vview.emplace_back(refview);
-			
-			for(auto [nk, nl] : neighs)
-		 	{
-		 		MicroImage target{
-					nk, nl,
-					mfpc.mia().nodeInWorld(nk,nl),
-					mfpc.mia().radius(),
-					lens_type(I, nk, nl)
-				};
-				
-				Image targetview;
-				cv::getRectSubPix(
-					scene, cv::Size{W,W},  
-					cv::Point2d{target.center[0], target.center[1]}, targetview
-				);
-				
-				vmi.emplace_back(target); vview.emplace_back(targetview);
-			}
-
-			functors.reserve(neighs.size() * (neighs.size() - 1) / 2);
-			
-			//for each observation
-			for(std::size_t i = 0; i < vmi.size(); ++i)
-			{		
-				for(std::size_t j = i+1; j < vmi.size(); ++j)
-				{
-					//add in solver
-					functors.emplace_back(
-							vview[i], vview[j],
-							vmi[i], vmi[j],
-							mfpc
-					);
-				}
-			}	
-			functors.shrink_to_fit();
-		}
-		else
-		{
-			DEBUG_ASSERT(false, "Can't initialize depth, no other strategy implemented yet");
-		}
-		
-	 	//evaluate observations, find min cost
-		const double stepv = (maxv - minv) / nbsample;
-		
-		std::uniform_real_distribution<double> perturbation(-stepv/2., stepv/2.);
-		maxv = maxv + 5.*stepv; //goes beyond to eliminate wrong hypotheses
-		minv = minv + perturbation(mt);
-		
-		double mincost = 1e9;
-		
-	#if COMPUTE_STATS		
-		double maxcost = 0.;
-		std::vector<double> costs; costs.reserve(nbsample+5);
-	#endif
-		
-		for(double v = minv; v <= maxv; v+=stepv)
-		{
-			if(std::fabs(v) < 2.) continue;
-			
-			typename FunctorError_t::ErrorType err;
-			VirtualDepth depth{v};
-			RMSE cost{0., 0};
-			
-			for(auto& f : functors)
-			{
-				if(f(depth, err))
-				{
-					cost.add(err[0]);	
-				}				
-			}
-			
-			const double c = cost.get();
-			
-			if(c < mincost) 
-			{
-				mincost = c;
-				hypothesis = v;
-			}
-			
-		#if COMPUTE_STATS
-			if(c > maxcost) maxcost = c;
-			costs.emplace_back(c);
-		#endif
-		}
-
-	#if COMPUTE_STATS	
-		double q1, med, q3, iqr_, kurt, skew, mean_, std;
-		iqr_ = iqr(costs, q1, med, q3);
-		kurt = kurtosis(costs);
-		skew = skewness(costs);
-		mean_ = mean(costs);
-		std = stddev(costs);
-		
-		std::ostringstream oss;
-		oss <<	"Initial depth hypothesis at ("<< ck << ", " << cl <<") = " << hypothesis << std::endl
-			<< "\t(min= " << mincost * 100. 
-			<< ", max= " << maxcost * 100. 
-			<< ", mean=" << mean_ * 100. 
-			<< ", std= " << std * 100000. 
-			<< ", dist= "<< (mean_ - mincost) / mincost * 100. << std::endl
-			<< "\t, med= "<< med * 100. 
-			<< ", q1= " << q1 * 100.
-			<< ", q3= " << q3 * 100.
-			<< ", iqr= " << iqr_ * 100. << std::endl
-			<< "\t, skew= " << skew * 100.
-			<< ", kurt= " << kurt * 100.
-			<< ")";
-		
-		PRINT_DEBUG(oss.str());
-	#else
-		//PRINT_DEBUG("Initial depth hypothesis at ("<< ck << ", " << cl <<") = " << hypothesis);
-	#endif
-	}, vfunctor);
-
-	return hypothesis;
+	
+	//PRINT_DEBUG("Initial depth hypothesis at ("<< ck << ", " << cl <<") = " << depth.v);
 }

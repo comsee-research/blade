@@ -2,6 +2,8 @@
 
 #include "geometry/depth/RawCoarseDepthMap.h"
 
-RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size = 3.5);
-RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size = 2.1); 
+constexpr double AUTOMATIC_FILTER_SIZE = -1.;
+
+RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size = AUTOMATIC_FILTER_SIZE);
+RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size = AUTOMATIC_FILTER_SIZE); 
 RawCoarseDepthMap minmax_filter_depth(const RawCoarseDepthMap& dm, double min, double max); 

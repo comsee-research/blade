@@ -10,3 +10,7 @@ struct IndexPair {
 };
 
 using P4D = Eigen::Vector4d;
+
+template <std::size_t N>
+using PnD = Eigen::Matrix<double, N, 1>;
+

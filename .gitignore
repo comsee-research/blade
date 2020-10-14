@@ -43,8 +43,11 @@
 *.tmp
 *.swp
 
+*.old
+
 datasets/
 script/
+res/
 
 *.csv
 *.js

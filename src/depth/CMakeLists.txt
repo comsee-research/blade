@@ -32,15 +32,17 @@ set(MULTIFOCUS_SRCS
 	##---------------
 	src/optimization/depth.cpp
 	src/optimization/errors/blurawaredisp.cpp
-	src/optimization/errors/blurequalizationdisp.cpp
 	src/optimization/errors/disparity.cpp
 	##---------------
 	src/processing/depth/depth.cpp
-	src/processing/depth/depth_from_observations.cpp
 	src/processing/depth/filter.cpp
 	src/processing/depth/neighbors.cpp
+	src/processing/depth/pairing.cpp
 	src/processing/depth/initialization.cpp
-	src/processing/depth/export_cost_function.cpp
+	src/processing/depth/search.cpp
+	src/processing/depth/export.cpp
+	src/processing/depth/compute.cpp
+	##---------------
 )
 
 message(${LIBPLENO_LIBRARIES})
@@ -48,20 +50,20 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${LIBPLENO_INCLUDE_DIRS} ${EIGEN
 
 ##################################################
 ##################################################
-add_executable(${ProjectId} src/depth.cpp ${MULTIFOCUS_SRCS})
+add_executable(depth src/apps/depth.cpp ${MULTIFOCUS_SRCS})
 target_include_directories(${ProjectId} PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(${ProjectId} ${MULTIFOCUS_LIBS} pthread)
 
 
 ##################################################
 ##################################################
-add_executable(depth_from_obs src/depth_from_observations.cpp ${MULTIFOCUS_SRCS})
+add_executable(depth_from_obs src/apps/depth_from_observations.cpp ${MULTIFOCUS_SRCS})
 target_include_directories(depth_from_obs PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_from_obs ${MULTIFOCUS_LIBS} pthread)
 
 
 ##################################################
 ##################################################
-add_executable(depth_export src/depth_export.cpp ${MULTIFOCUS_SRCS})
+add_executable(depth_export src/apps/depth_export.cpp ${MULTIFOCUS_SRCS})
 target_include_directories(depth_export PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_export ${MULTIFOCUS_LIBS} pthread)

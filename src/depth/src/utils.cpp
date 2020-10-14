@@ -4,8 +4,11 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
+//libpleno
 #include <pleno/io/printer.h>
 
+//blade
+#include "processing/depth/strategy.h"
 
 Config_t parse_args(int argc, char *argv[])
 {
@@ -43,6 +46,18 @@ Config_t parse_args(int argc, char *argv[])
 		("features,f",
 			po::value<std::string>()->default_value(""),
 			"Path to observations file"
+		)
+		("dm",
+			po::value<std::string>()->default_value(""),
+			"Path to depthmap file"
+		)
+		("proba", 
+			po::value<bool>()->default_value(true),
+			"Enable probabilistic estimation"
+		)
+		("method,m", 
+			po::value<std::uint16_t>()->default_value(SearchStrategy::GOLDEN_SECTION),
+			"Depth search method:\nNONLIN_OPTIM=0, BRUTE_FORCE=1, GOLDEN_SECTION=2"
 		)
 		("output,o",
 			po::value<std::string>()->default_value("depth.png"),
@@ -94,6 +109,10 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.params 		= vm["pparams"].as<std::string>();
 	config.path.features 	= vm["features"].as<std::string>();
 	config.path.output 		= vm["output"].as<std::string>();
+	config.path.dm 			= vm["dm"].as<std::string>();
+	
+	config.use_probabilistic 	= vm["proba"].as<bool>();
+	config.method				= vm["method"].as<std::uint16_t>();
 	
 	return config; 
 }

@@ -8,12 +8,16 @@ struct Config_t {
 	bool verbose;
 	std::uint16_t level;
 	
+	bool use_probabilistic;
+	std::uint16_t method;
+		
 	struct {
 		std::string images;
 		std::string camera;
 		std::string params;
 		std::string features;
 		std::string output;
+		std::string dm;
 	} path;
 };
 

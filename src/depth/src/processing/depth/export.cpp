@@ -336,6 +336,8 @@ void export_cost_function_from_obs(
 	//------------------------------------------------------------------------------
 		PRINT_INFO("=== Pairing observations from BAP observations...");
 		make_functors_from_obs(functors, mfpc, scene, observations);
+		DEBUG_VAR(functors.size());
+		
 	//------------------------------------------------------------------------------
 	// Compute costs				
 	//------------------------------------------------------------------------------
@@ -360,7 +362,7 @@ void export_cost_function_from_obs(
 		{ 
 			int i = 0;
 			if (d[4] == 0.) continue; //if no observations: continue
-			oss << d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," << -1. << "," //v, z, depth, baseline
+			oss << d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," << 0. << "," //v, z, depth, baseline
 				<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //rmse, cost, nobs
 				<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //median, mean, sigma
 				<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++]	<< "," << d[i++] << "," //normalized weighed cost, mean weighed cost, wrmse, weight

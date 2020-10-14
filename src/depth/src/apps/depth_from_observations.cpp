@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
 		{
 			PRINT_INFO("=== Saving depthmap... ");
 			std::ostringstream name; 
-			name << "dm-";
+			name << "odm-";
 			if (mfpc.I() > 0u) name << "blade-";
 			else name << "disp-";
 			

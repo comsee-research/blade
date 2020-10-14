@@ -19,7 +19,6 @@
 #define USE_SAME_SEED 1
 #define COMPUTE_STATS 0
 
-
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
@@ -28,13 +27,13 @@ std::pair<double,double> initialize_min_max_distance(const PlenopticCamera& mfpc
 	constexpr double nearfocusd = 1e3;
 	constexpr double farfocusd = 5e3; 
 	
-	const double d = mfpc.distance_focus() * 2.;
+	const double d = mfpc.distance_focus();// * 2.;
 	double mind, maxd;
 	
 	if(d < nearfocusd) //short distances
 	{
 		maxd = mfpc.distance_focus() * 1.2;
-		mind = std::ceil(mfpc.focal()) * 2.; //mfpc.v2obj(12.); //
+		mind = std::ceil(mfpc.focal()) * 2.;
 	}
 	else if (d < farfocusd) //middle distances
 	{

@@ -480,9 +480,11 @@ void compute_depthmap_from_obs(
 )
 {	
 //1) Initialize hypothesis
+	const std::size_t I = (mfpc.I() == 0) ? 1 : mfpc.I();
+	
 	double mdfp = 0.; //mean distance focal plane
-	for(int i =0; i < mfpc.I(); ++i) mdfp +=  mfpc.focal_plane(i);
-	mdfp /= mfpc.I();
+	for(std::size_t i =0; i < I; ++i) mdfp +=  mfpc.focal_plane(i);
+	mdfp /= double(I);
 	double v = mfpc.obj2v(mdfp*0.8);
 	
 	VirtualDepth vd{v};

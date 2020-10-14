@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
 			obs[ob.frame].push_back(ob);	
 		
 		//for each frame
-		for (auto & [frame, baps]: obs)
+		for (const auto & [frame, baps]: obs)
 		{ 	
 			PRINT_INFO("=== Export costfunction at frame = " << frame);	
 				

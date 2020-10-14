@@ -32,6 +32,9 @@ struct DisparityCostError
     	const VirtualDepth& depth,
     	ErrorType& error
     ) const;
+    
+    
+    double weight(double) const;
 };
 
 namespace ttt

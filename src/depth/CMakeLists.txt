@@ -22,11 +22,10 @@ set(MULTIFOCUS_LIBS
 )
 
 ##INCLUDE DIRECTORIES
-set(MULTIFOCUS_INCDIRS "src")
+set(MULTIFOCUS_INCDIRS "src" "geometry" "graphic" "io" "optimization" "processing")
 
 ##SOURCES
 set(MULTIFOCUS_SRCS 
-	src/utils.cpp
 	##---------------
 	src/geometry/depth/RawCoarseDepthMap.cpp
 	##---------------
@@ -50,20 +49,44 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${LIBPLENO_INCLUDE_DIRS} ${EIGEN
 
 ##################################################
 ##################################################
-add_executable(depth src/apps/depth.cpp ${MULTIFOCUS_SRCS})
+set(APP_DEPTH_SRCS src/apps/depth/depth.cpp src/apps/depth/utils.cpp)
+add_executable(depth ${APP_DEPTH_SRCS} ${MULTIFOCUS_SRCS})
 target_include_directories(${ProjectId} PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(${ProjectId} ${MULTIFOCUS_LIBS} pthread)
 
 
 ##################################################
 ##################################################
-add_executable(depth_from_obs src/apps/depth_from_observations.cpp ${MULTIFOCUS_SRCS})
+set(APP_DEPTH_FROM_OBS_SRCS src/apps/depth/depth_from_observations.cpp src/apps/depth/utils.cpp)
+add_executable(depth_from_obs ${APP_DEPTH_FROM_OBS_SRCS} ${MULTIFOCUS_SRCS})
 target_include_directories(depth_from_obs PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_from_obs ${MULTIFOCUS_LIBS} pthread)
 
 
 ##################################################
 ##################################################
-add_executable(depth_export src/apps/depth_export.cpp ${MULTIFOCUS_SRCS})
+set(APP_EXPORT_SRCS src/apps/export/depth_export.cpp src/apps/export/utils.cpp)
+add_executable(depth_export ${APP_EXPORT_SRCS} ${MULTIFOCUS_SRCS})
 target_include_directories(depth_export PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_export ${MULTIFOCUS_LIBS} pthread)
+
+
+
+##################################################
+##################################################
+##SOURCES
+set(APP_EVALUATE_SRCS 
+	##---------------
+	src/apps/evaluate/depth_evaluate.cpp
+	src/apps/evaluate/utils.cpp
+	##---------------
+	src/apps/evaluate/reduce.cpp
+	src/apps/evaluate/load.cpp
+	src/apps/evaluate/compute.cpp
+	src/apps/evaluate/export.cpp
+	##---------------
+)
+
+add_executable(depth_evaluate ${APP_EVALUATE_SRCS} ${MULTIFOCUS_SRCS})
+target_include_directories(depth_evaluate PRIVATE ${MULTIFOCUS_INCDIRS})
+target_link_libraries(depth_evaluate ${MULTIFOCUS_LIBS} pthread)

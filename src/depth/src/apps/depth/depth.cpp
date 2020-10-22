@@ -41,7 +41,8 @@ void load(const std::vector<ImageWithInfoConfig>& cfgs, std::vector<ImageWithInf
 		images.emplace_back(
 			ImageWithInfo{ 
 				cv::imread(cfg.path(), cv::IMREAD_UNCHANGED),
-				cfg.fnumber()
+				cfg.fnumber(),
+				cfg.frame()
 			}
 		);	
 	}
@@ -74,16 +75,17 @@ int main(int argc, char* argv[])
 		DEBUG_ASSERT((images.size() != 0u),	"You need to provide images!");
 		
 		const double cbfnbr = images[0].fnumber;	
-		for (const auto& [ _ , fnumber] : images)
+		for (const auto& [ _ , fnumber, __] : images)
 		{
 			DEBUG_ASSERT((cbfnbr == fnumber), "All images should have the same aperture configuration");
 		}
 		
 		//1.3) Load white image corresponding to the aperture (mask)
 		PRINT_WARN("\t1.2) Load white image corresponding to the aperture (mask)");
-		const auto [mask_, mfnbr] = ImageWithInfo{ 
+		const auto [mask_, mfnbr, _] = ImageWithInfo{ 
 					cv::imread(cfg_images.mask().path(), cv::IMREAD_UNCHANGED),
-					cfg_images.mask().fnumber()
+					cfg_images.mask().fnumber(),
+					cfg_images.mask().frame()
 				};
 		mask = mask_;
 		DEBUG_ASSERT((mfnbr == cbfnbr), "No corresponding f-number between mask and images");
@@ -123,7 +125,6 @@ int main(int argc, char* argv[])
 			return img; 
 		}	
 	);	
-	
 	
 	PRINT_WARN("\t3.2) Load depth estimation config");
 	SearchStrategy search = SearchStrategy(config.method);

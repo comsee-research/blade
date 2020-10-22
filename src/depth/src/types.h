@@ -14,3 +14,10 @@ using P4D = Eigen::Vector4d;
 template <std::size_t N>
 using PnD = Eigen::Matrix<double, N, 1>;
 
+struct xyz 
+{
+	double x = 0., y = 0., z = 0.;
+};
+
+using XYZs = std::vector<xyz>;
+

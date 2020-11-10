@@ -1,7 +1,7 @@
 #include "blurawaredisp.h"
 
 #include <pleno/io/printer.h>
-#include "io/choice.h"
+#include <pleno/io/choice.h>
 
 #include <pleno/processing/improcess.h>
 

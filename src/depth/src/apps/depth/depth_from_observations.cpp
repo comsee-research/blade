@@ -12,7 +12,7 @@
 #include <pleno/graphic/gui.h>
 
 #include <pleno/io/printer.h>
-#include "io/choice.h"
+#include <pleno/io/choice.h>
 
 //geometry
 #include <pleno/geometry/observation.h>

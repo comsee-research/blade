@@ -8,6 +8,7 @@
 DepthError compute(const std::map<Index, double>& depths, const std::map<Index, double>& gtdepth)
 {
 	std::map<double, std::vector<double>> absdepth;
+	std::map<double, double>			  dirdepth;
 	std::map<double, std::vector<double>> reldepth;
 	
 	for (const auto& [f, d] : depths)
@@ -27,6 +28,15 @@ DepthError compute(const std::map<Index, double>& depths, const std::map<Index, 
 		}	
 	}
 	
+	auto itref = gtdepth.cbegin();
+	for (auto nit = std::next(itref, 1); nit != gtdepth.cend(); ++nit)	
+	{
+		const double delta = std::fabs(itref->second - nit->second);
+		const double dz = std::fabs(depths.at(itref->first) - depths.at(nit->first));
+		
+		dirdepth[delta] = dz;
+	}
+	
 	DepthError derr;
 
 	PRINT_INFO("=== Compute absolute errors");
@@ -35,9 +45,16 @@ DepthError compute(const std::map<Index, double>& depths, const std::map<Index, 
 		double emean = mean(dzs);
 		double estd = dzs.size() > 1 ? stddev(dzs) : 0.;
 		
-		PRINT_DEBUG("d("<<d<<"): err = " << emean << ", std = " << estd);
+		PRINT_DEBUG("d(" << d << "): err = " << emean << ", std = " << estd);
 		derr.abserr[d] = {emean, estd};	
-	}	
+	}
+	
+	PRINT_INFO("=== Compute direct depths");
+	for (auto & [d, dz] : dirdepth)
+	{		
+		PRINT_DEBUG("d_gt(" << d << "): d_z = " << dz);
+		derr.dirdepth[d] = dz;	
+	}		
 	
 	PRINT_INFO("=== Compute relative errors");
 	for (auto & [d, dzs] : reldepth)
@@ -45,7 +62,7 @@ DepthError compute(const std::map<Index, double>& depths, const std::map<Index, 
 		double emean = mean(dzs);
 		double estd = dzs.size() > 1 ? stddev(dzs) : 0.;
 		
-		PRINT_DEBUG("d("<<d<<"): err = " << emean << ", std = " << estd);
+		PRINT_DEBUG("d(" << d << "): err = " << emean << ", std = " << estd);
 		derr.relerr[d] = {emean, estd};	
 	}	
 	

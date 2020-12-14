@@ -3,7 +3,7 @@
 #include <pleno/io/printer.h>
 #include <pleno/io/choice.h>
 
-#include <pleno/processing/improcess.h>
+#include <pleno/processing/imgproc/improcess.h>
 
 #define ENABLE_DEBUG_DISPLAY 0
 

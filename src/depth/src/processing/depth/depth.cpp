@@ -2,7 +2,7 @@
 
 #include <thread> //std::thread
 
-#include <pleno/processing/improcess.h>
+#include <pleno/processing/imgproc/improcess.h>
 
 #include <pleno/processing/tools/lens.h>
 #include <pleno/processing/tools/rmse.h>

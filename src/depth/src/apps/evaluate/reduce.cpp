@@ -40,8 +40,12 @@ std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps)
 {
 	std::map<Index, double> dists;
 	
+	bool is_virtual_depth = true;
+	
 	for (const auto& [frame, dm] : maps)
 	{
+		is_virtual_depth = is_virtual_depth and dm.is_virtual_depth();
+		
 		std::vector<double> vs; vs.reserve(dm.mia().width() * dm.mia().height());
 		
 		for (std::size_t k = 0; k < dm.mia().width(); ++k)
@@ -58,7 +62,8 @@ std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps)
 		vs.shrink_to_fit();
 		const double vmed =  median(vs);
 		
-		dists[frame] = dm.pcm().v2obj(vmed);
+		if (is_virtual_depth) dists[frame] = dm.pcm().v2obj(vmed);
+		else  dists[frame] = vmed;
 	}
 	
 	return dists;
@@ -67,9 +72,12 @@ std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps)
 std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs)
 {
 	std::map<Index, double> dists;
+	bool is_virtual_depth = true;
 	
 	for (const auto& [frame, dm] : maps)
 	{
+		is_virtual_depth = is_virtual_depth and dm.is_virtual_depth();
+		
 		const BAPObservations& baps = obs.at(frame);
 		
 		std::vector<double> vs; vs.reserve(baps.size());
@@ -80,8 +88,9 @@ std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps, c
 		}
 
 		const double vmed =  median(vs);
-		
-		dists[frame] = dm.pcm().v2obj(vmed);
+			
+		if (is_virtual_depth) dists[frame] = dm.pcm().v2obj(vmed);
+		else  dists[frame] = vmed;
 	}
 	
 	return dists;

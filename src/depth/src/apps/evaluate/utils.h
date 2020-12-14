@@ -14,6 +14,7 @@ struct Config_t {
 		std::string features;
 		std::string output;
 		std::string dm;
+		std::string csv;
 		std::string xyz;
 		std::string poses;
 		std::string gt;

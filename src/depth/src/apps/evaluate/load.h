@@ -21,8 +21,9 @@ XYZs read_xyz(std::string path);
 
 //******************************************************************************
 
-std::map<Index, XYZs> 				load(const XYZsConfig& config);
-std::map<Index, RawCoarseDepthMap> 	load(const DepthMapsConfig& config, const PlenopticCamera& mfpc);
-std::map<Index, Pose> 				load(const CalibrationPosesConfig& config);
+std::map<Index, XYZs> 				load(const XYZsConfig& config); //load xyz point cloud from raytrix
+std::map<Index, RawCoarseDepthMap> 	load(const DepthMapsConfig& config, const PlenopticCamera& mfpc); //load virtual depth map from blade
+std::map<Index, RawCoarseDepthMap> 	load_from_csv(std::string path, const PlenopticCamera& mfpc); //load metric depth map from pledge
+std::map<Index, Pose> 				load(const CalibrationPosesConfig& config); //load extrinsics poses from compote
 
 std::map<Index, double> 			load_gt_dist(std::string path);

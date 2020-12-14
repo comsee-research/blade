@@ -2,7 +2,9 @@
 
 #include "processing/depth/initialization.h"
 
-
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
 XYZs read_xyz(std::string path)
 {
 	std::ifstream ifs(path);
@@ -70,6 +72,59 @@ std::map<Index, RawCoarseDepthMap> load(const DepthMapsConfig& config, const Ple
 }
 
 //******************************************************************************
+std::map<Index, RawCoarseDepthMap> load_from_csv(std::string path, const PlenopticCamera& mfpc)
+{
+	std::map<Index, RawCoarseDepthMap> maps;
+	
+	using KLD = std::tuple<Index, Index, double>;
+	std::map<Index, std::vector<KLD>> depths;
+	
+	std::ifstream ifs(path);
+	PRINT_DEBUG("Open file = " << path);
+
+    
+    const int nbvalues = mfpc.mia().width() * mfpc.mia().height();
+    
+    std::string line;
+    char comma;
+    
+    std::getline(ifs, line, '\n');//ignore header
+    
+    while (std::getline(ifs, line, '\n'))
+    {
+     	std::istringstream iss(line);
+
+		Index frame, k, l;
+		double d;
+		
+        iss >> frame >> comma >> k >> comma >> l >> comma >> d;
+        
+        depths[frame].reserve(nbvalues);
+        depths[frame].emplace_back(k,l,d);    
+        
+        //iss.clear(); 
+    }
+	ifs.close();
+
+	const auto [mind, maxd] = initialize_min_max_distance(mfpc);
+	
+	for (auto & [frame, klds] : depths)
+	{
+		RawCoarseDepthMap dm{mfpc, mind, maxd, false}; //metric depth map
+		
+		for (const auto& [k, l, d] : klds)
+		{
+			dm.depth(k,l) = d;
+			dm.state(k,l) = DepthInfo::State::COMPUTED;
+		}
+
+		maps.emplace(frame, std::move(dm));
+	}
+	
+	return maps;
+}
+
+//******************************************************************************
 std::map<Index, Pose> load(const CalibrationPosesConfig& config)
 {
 	std::map<Index, Pose> maps;
@@ -85,7 +140,7 @@ std::map<Index, double> load_gt_dist(std::string path)
 {
 	std::ifstream ifs(path, std::ios::in);
 	PRINT_DEBUG("Open file = " << path);
-	
+             				
 	std::map<Index, double> maps;
 	
     std::string line;

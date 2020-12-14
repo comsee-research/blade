@@ -20,6 +20,8 @@ DepthError compute(const std::map<Index, double>& depths, const std::map<Index, 
 	{
 		for (auto nit = std::next(it, 1); nit != gtdepth.cend(); ++nit)	
 		{
+			if (depths.count(it->first) == 0 or depths.count(nit->first) == 0) continue;
+			
 			const double delta = std::fabs(it->second - nit->second);
 			const double dz = std::fabs(depths.at(it->first) - depths.at(nit->first));
 			
@@ -27,10 +29,18 @@ DepthError compute(const std::map<Index, double>& depths, const std::map<Index, 
 			reldepth[delta].push_back(100. * std::fabs(delta-dz) / delta);				
 		}	
 	}
-	
-	auto itref = gtdepth.cbegin();
-	for (auto nit = std::next(itref, 1); nit != gtdepth.cend(); ++nit)	
+		
+	auto itref = gtdepth.cbegin(); 
+	for (; itref != gtdepth.cend(); ++itref)
 	{
+		if (itref->second == 0.) break;	
+	}	
+	
+	for (auto nit = gtdepth.cbegin(); nit != gtdepth.cend(); ++nit)	
+	{
+		if (depths.count(nit->first) == 0) continue;
+		if (nit == itref) continue;
+		
 		const double delta = std::fabs(itref->second - nit->second);
 		const double dz = std::fabs(depths.at(itref->first) - depths.at(nit->first));
 		

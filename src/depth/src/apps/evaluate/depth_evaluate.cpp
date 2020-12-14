@@ -21,7 +21,7 @@
 #include "geometry/depth/RawCoarseDepthMap.h"
 
 //processing
-#include <pleno/processing/improcess.h> //devignetting
+#include <pleno/processing/imgproc/improcess.h> //devignetting
 #include "processing/depth/initialization.h"
 #include "processing/depth/export.h"
 
@@ -109,6 +109,11 @@ int main(int argc, char* argv[])
 		
 		// load
 		vdms.emplace<std::map<Index, RawCoarseDepthMap>>(load(cfg, mfpc));	
+	}
+	else if (config.path.csv != "")
+	{		
+		// load
+		vdms.emplace<std::map<Index, RawCoarseDepthMap>>(load_from_csv(config.path.csv, mfpc));	
 	}
 	else if (config.path.xyz != "")
 	{

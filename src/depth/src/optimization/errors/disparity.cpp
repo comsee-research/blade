@@ -2,7 +2,7 @@
 
 #include <pleno/io/printer.h>
 
-#include <pleno/processing/improcess.h>
+#include <pleno/processing/imgproc/improcess.h>
 
 //******************************************************************************
 //******************************************************************************

@@ -38,6 +38,55 @@ XYZs read_xyz(std::string path)
     ifs.close();
 	return pts;
 }
+//******************************************************************************
+Pose read_mat(std::string path)
+{
+		
+	std::ifstream ifs(path);
+	PRINT_DEBUG("Open file = " << path);
+
+    std::string line;
+    
+    for (std::size_t i = 0; i < 5; ++i)
+    {
+    	std::getline(ifs, line, '\n');//ignore header
+    }
+ 
+ 	double r11, r12, r13, t1;
+ 	double r21, r22, r23, t2;
+ 	double r31, r32, r33, t3;
+ 	
+    //first line
+    {
+     	std::getline(ifs, line, '\n');
+     	std::istringstream iss(line);
+		
+        iss >> r11 >> r12 >> r13 >> t1;    
+    }
+    //second line
+    {
+     	std::getline(ifs, line, '\n');
+     	std::istringstream iss(line);
+		
+        iss >> r21 >> r22 >> r23 >> t2;    
+    }
+    //third line
+    {
+     	std::getline(ifs, line, '\n');
+     	std::istringstream iss(line);
+		
+        iss >> r31 >> r32 >> r33 >> t3;    
+    }
+	ifs.close();
+
+	Pose pose;
+	pose.translation() << t1, t2, t3;
+	pose.rotation() << 	r11, 	r12, 	r13,
+						r21,	r22,	r23,
+						r31,	r32,	r33;	
+
+	return pose;
+}
 
 //******************************************************************************
 //******************************************************************************
@@ -119,6 +168,18 @@ std::map<Index, RawCoarseDepthMap> load_from_csv(std::string path, const Plenopt
 		}
 
 		maps.emplace(frame, std::move(dm));
+	}
+	
+	return maps;
+}
+
+//******************************************************************************
+std::map<Index, Pose> load(const MatsConfig& config)
+{
+	std::map<Index, Pose> maps;
+	for (auto & mat_cfg : config.mats())
+	{
+		maps.emplace(mat_cfg.frame(), read_mat(mat_cfg.path()));	
 	}
 	
 	return maps;

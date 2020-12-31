@@ -131,6 +131,14 @@ int main(int argc, char* argv[])
 		// load
 		vdms.emplace<std::map<Index, Pose>>(load(cfg));
 	}
+	else if (config.path.mat != "")
+	{
+		MatsConfig cfg;
+		v::load(config.path.mat, cfg);
+		
+		// load
+		vdms.emplace<std::map<Index, Pose>>(load(cfg));
+	}
 	else
 	{
 		PRINT_ERR("No depthmaps representation has been given. Abort.");

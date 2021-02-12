@@ -171,7 +171,7 @@ int main(int argc, char* argv[])
 		do {
 			export_cost_function(
 				mfpc, pictures[0], mfpc.obj2v(maxd), mfpc.obj2v(mind), 2500, 
-				ObservationsPairingStrategy::CENTRALIZED, false
+				ObservationsPairingStrategy::CENTRALIZED, false /* per_baseline */
 			);
 		} while (not finished());
 	}

@@ -107,6 +107,8 @@ bool BlurAwareDisparityCostError::operator()(
 	Image fref, ftarget;	
 	img_i.convertTo(fref, CV_64FC1, 1./255.); //(i)-view is ref
 	img_j.convertTo(ftarget, CV_64FC1, 1./255.); //(j)-view has to be warped
+	
+//check texture ?
 
 //2) compute mask	
 	Image fmask = Image{fref.size(), CV_64FC1, cv::Scalar::all(1.)};
@@ -117,9 +119,10 @@ bool BlurAwareDisparityCostError::operator()(
 	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disparity[0], 0., 1., disparity[1]); //Affine transformation
 	
 	//3.2) warp mask and target	
+	const auto interp = cv::INTER_LINEAR; //cv::INTER_CUBIC; //
 	Image wmask, wtarget;
-	cv::warpAffine(fmask, wmask, M, fmask.size(), cv::INTER_LINEAR + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
-	cv::warpAffine(ftarget, wtarget, M, ftarget.size(), cv::INTER_LINEAR + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
+	cv::warpAffine(fmask, wmask, M, fmask.size(), interp + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
+	cv::warpAffine(ftarget, wtarget, M, ftarget.size(), interp + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
 	
 	trim_double(wmask, radius); //Final mask =  micro-image mask INTER warped masked
 	
@@ -146,7 +149,7 @@ bool BlurAwareDisparityCostError::operator()(
 		{	
 			case S_TRANSFORM:
 			{
-				cv::Laplacian(fedi, lpedi, CV_64FC1);
+				cv::Laplacian(fedi, lpedi, CV_64FC1); //FIXME: Kernel size ? 3x3
 				cv::add(fedi, (std::fabs(sigma_sqr_r) / 4.) * lpedi, fedi);
 				break;
 			}	
@@ -177,7 +180,7 @@ bool BlurAwareDisparityCostError::operator()(
 	if (summask < threshold_reprojected_pixel) return false;
 	
 	const double normalization = 1. / (summask + epsilon); //number of pixel to take into account
-	const double err = cv::norm(finalref, finaltarget, cv::NORM_L1) * normalization; //normalized SAD
+	const double err = cv::norm(finalref, finaltarget, cv::NORM_L1) * normalization; //normalized SAD = MAD
 
 	error[0] = err;
 	

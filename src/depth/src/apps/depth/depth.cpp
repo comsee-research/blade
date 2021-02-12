@@ -135,7 +135,7 @@ int main(int argc, char* argv[])
 	for (std::size_t frame = 0; frame < pictures.size(); ++frame)
 	{
 		PRINT_INFO("=== Estimate depth of frame = " << frame);	
-		RawCoarseDepthMap dm{mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};
+		RawCoarseDepthMap dm{mfpc, 2. /* mfpc.obj2v(maxd) */, mfpc.obj2v(mind)};
 	
 		if (config.use_probabilistic)
 		{	

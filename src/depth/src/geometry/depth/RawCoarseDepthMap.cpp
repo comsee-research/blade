@@ -104,7 +104,7 @@ RawCoarseDepthMap RawCoarseDepthMap::as_metric() const
 	
 	//else, convert to metric
 	const double mind = mfpc.v2obj(max_depth());
-	const double maxd = std::min(mfpc.v2obj(min_depth()), 5e3); //max 5m
+	const double maxd = std::min(mfpc.v2obj(min_depth()), 100. * mfpc.focal()); //max 100 * F
 	RawCoarseDepthMap mdm{mfpc, mind, maxd, false};
 
 	//copy and convert depth map data

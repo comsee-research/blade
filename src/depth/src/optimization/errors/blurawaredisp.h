@@ -10,7 +10,7 @@
 
 struct BlurAwareDisparityCostError
 {		
-	using ErrorType = Eigen::Matrix<double, 1, 1>; //SAD
+	using ErrorType = Eigen::Matrix<double, 1, 1>; //SAD~MAD
 	enum BlurMethod { GAUSSIAN_BLUR = 0, APPROX_GAUSSIAN_BLUR, S_TRANSFORM };
 	
 	const Image img_i; 

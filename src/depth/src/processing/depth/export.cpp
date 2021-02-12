@@ -122,7 +122,7 @@ void compute_costs(auto& data, auto& functors, const PlenopticCamera& mfpc, doub
 				costs.emplace_back(error); //for STATS
 				weights.emplace_back(weight); //for STATS
 				
-				total_cost 		+= weighted_sqr_err;//weighted_err;
+				total_cost 		+= weighted_err;; // weighted_sqr_err;//
 				total_weight  	+= weight;
 				N 				+= 1.;
 				

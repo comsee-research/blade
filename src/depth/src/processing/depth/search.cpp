@@ -246,14 +246,15 @@ void gss_depth(
 					const double error 				= err[0];
 					const double weight 			= f.weight(v);
 					const double weighted_sqr_err	= weight * error * error;
+					const double weighted_err 		= weight * error;
 					
 					//rmse.add(error);
-					total_cost 		+= weighted_sqr_err;
+					total_cost 		+= weighted_err; //weighted_sqr_err; //
 					total_weight  	+= weight;
 				}				
 			}
 			double e = 0.;		
-			if (total_weight != 0.) e = std::sqrt(total_cost / total_weight);	
+			if (total_weight != 0.) e = (total_cost / total_weight); //std::sqrt(total_cost / total_weight); //	
 			return e; //rmse.get();
 		};
 		

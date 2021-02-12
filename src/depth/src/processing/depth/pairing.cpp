@@ -18,7 +18,7 @@ void make_functors(
 		ck, cl,
 		mfpc.mia().nodeInWorld(ck,cl),
 		mfpc.mia().radius(),
-		lens_type(I, ck, cl)
+		mfpc.mia().type(I, ck, cl)
 	};
 	
 	Image refview;
@@ -38,7 +38,7 @@ void make_functors(
 				nk, nl,
 				mfpc.mia().nodeInWorld(nk,nl),
 				mfpc.mia().radius(),
-				lens_type(I, nk, nl)
+				mfpc.mia().type(I, nk, nl)
 			};
 			
 			Image targetview;
@@ -68,7 +68,7 @@ void make_functors(
 				nk, nl,
 				mfpc.mia().nodeInWorld(nk,nl),
 				mfpc.mia().radius(),
-				lens_type(I, nk, nl)
+				mfpc.mia().type(I, nk, nl)
 			};
 			
 			Image targetview;

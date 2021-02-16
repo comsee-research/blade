@@ -35,8 +35,9 @@ void bruteforce_depth(
 	const std::vector<IndexPair>& neighs, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t ck, std::size_t cl, //current indexes
-	double minv, double maxv, double nbsample = 15.,
-	ObservationsPairingStrategy pairing = ObservationsPairingStrategy::CENTRALIZED
+	double dmin = 2.01, double dmax = 15., double nbsample = 15.,
+	ObservationsPairingStrategy pairing = ObservationsPairingStrategy::CENTRALIZED,
+	bool metric = false
 );
 
 //******************************************************************************
@@ -48,6 +49,7 @@ void gss_depth(
 	const std::vector<IndexPair>& neighs, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t ck, std::size_t cl, //current indexes
-	double minv, double maxv, double tol = std::sqrt(0.001),
-	ObservationsPairingStrategy pairing = ObservationsPairingStrategy::CENTRALIZED
+	double dmin = 2.01, double dmax = 15., double tol = std::sqrt(0.001),
+	ObservationsPairingStrategy pairing = ObservationsPairingStrategy::CENTRALIZED,
+	bool metric = false
 );

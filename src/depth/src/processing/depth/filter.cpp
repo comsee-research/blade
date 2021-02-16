@@ -11,9 +11,9 @@ RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size)
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-1-margin; 
+	const std::size_t kmax = dm.mia().width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-1-margin; 
+	const std::size_t lmax = dm.mia().height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for(std::size_t k = kmin; k < kmax; ++k)
@@ -50,9 +50,9 @@ RawCoarseDepthMap mean_filter_depth(const RawCoarseDepthMap& dm, double size)
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-1-margin; 
+	const std::size_t kmax = dm.mia().width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-1-margin; 
+	const std::size_t lmax = dm.mia().height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for(std::size_t k = kmin; k < kmax; ++k)
@@ -95,9 +95,9 @@ void inplace_minmax_filter_depth(RawCoarseDepthMap& dm, double min, double max)
 {	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-1-margin; 
+	const std::size_t kmax = dm.mia().width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-1-margin; 
+	const std::size_t lmax = dm.mia().height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for(std::size_t k = kmin; k < kmax; ++k)
@@ -119,9 +119,9 @@ RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-1-margin; 
+	const std::size_t kmax = dm.mia().width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-1-margin; 
+	const std::size_t lmax = dm.mia().height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for(std::size_t k = kmin; k < kmax; ++k)

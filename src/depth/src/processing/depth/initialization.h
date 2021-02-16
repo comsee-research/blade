@@ -26,5 +26,6 @@ void initialize_depth(
 	std::size_t ck, std::size_t cl,
 	double minv = 2., double maxv = 20., double nbsample = 10.,
 	ObservationsPairingStrategy pairing = ObservationsPairingStrategy::CENTRALIZED,
-	SearchStrategy search = SearchStrategy::GOLDEN_SECTION
+	SearchStrategy search = SearchStrategy::GOLDEN_SECTION,
+	bool metric = false
 );

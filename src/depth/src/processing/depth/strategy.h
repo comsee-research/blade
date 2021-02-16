@@ -3,13 +3,17 @@
 enum InitStrategy : std::uint16_t { RANDOM = 0, REGULAR_GRID = 1, FROM_LEFT_BORDER = 2};
 enum BeliefPropagationStrategy : std::uint16_t { NONE = 0, FIRST_RING = 1, ALL_NEIGHS = 2};
 enum ObservationsPairingStrategy : std::uint16_t { CENTRALIZED = 0, ALL_PAIRS = 1};
-enum SearchStrategy : std::uint16_t {NONLIN_OPTIM = 0, BRUTE_FORCE = 1, GOLDEN_SECTION = 2, PROBABILISTIC = 4};
+enum SearchStrategy : std::uint16_t {NONLIN_OPTIM = 0, BRUTE_FORCE = 1, GOLDEN_SECTION = 2};
 
 struct DepthEstimationStrategy {
 	InitStrategy init 					= InitStrategy::REGULAR_GRID;
 	ObservationsPairingStrategy pairing = ObservationsPairingStrategy::CENTRALIZED;
 	BeliefPropagationStrategy belief	= BeliefPropagationStrategy::NONE;
 	SearchStrategy search				= SearchStrategy::BRUTE_FORCE;
+	bool metric							= true;
+	bool probabilistic					= false;
+	bool filter							= true;
+	double precision					= 0.01; //in mm if metric, in virtual space otherwise
 };
 
 //******************************************************************************
@@ -56,7 +60,6 @@ inline std::ostream& operator<<(std::ostream& os, const SearchStrategy& mode)
 	if (mode == SearchStrategy::NONLIN_OPTIM) os << "Non-linear optimization (LM)";
 	if (mode == SearchStrategy::BRUTE_FORCE) os << "Brute-Force search";
 	if (mode == SearchStrategy::GOLDEN_SECTION) os << "Golden-Section search (GSS)";
-	if (mode == SearchStrategy::PROBABILISTIC) os << " + probabilistic estimation";
 	return os;
 }
 
@@ -67,7 +70,12 @@ inline std::ostream& operator<<(std::ostream& os, const DepthEstimationStrategy&
 		<< "\t" << mode.init << std::endl
 		<< "\t" << mode.pairing << std::endl
 		<< "\t" << mode.belief << std::endl
-		<< "\t" << mode.search;
+		<< "\t" << mode.search << std::endl
+		<< std::boolalpha 
+		<< "\tmetric = " << mode.metric << std::endl
+		<< "\tprobabilistic = " << mode.probabilistic << std::endl
+		<< "\tfilter = " << mode.filter
+		<< std::noboolalpha;
 
 	return os;
 }

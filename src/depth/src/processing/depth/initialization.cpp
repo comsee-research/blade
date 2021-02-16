@@ -24,13 +24,10 @@
 //******************************************************************************
 std::pair<double,double> initialize_min_max_distance(const PlenopticCamera& mfpc)
 {
-	//constexpr double nearfocusd = 1e3; // 15 * F
-	//constexpr double farfocusd = 5e3; // 100 * F
-	
 	const double F =  mfpc.focal();
 	const double nearfocusd = 20. * F; 
 	const double farfocusd = 100. * F; 
-	const double h = mfpc.distance_focus();// * 2.;
+	const double h = mfpc.distance_focus();
 	
 	double mind, maxd;
 	
@@ -217,7 +214,7 @@ void initialize_depth(
 	std::size_t ck, std::size_t cl,
 	double minv, double maxv, double nbsample,
 	ObservationsPairingStrategy pairing,
-	SearchStrategy search
+	SearchStrategy search, bool metric
 )
 {
 	constexpr double nbsupplsample = 5.; 
@@ -235,21 +232,28 @@ void initialize_depth(
 	maxv = maxv + nbsupplsample * stepv; //goes beyond to eliminate wrong hypotheses
 	minv = minv + perturbation(mt);	
 	
+	//ensure strategy is not based on optim for init
+	if (search == SearchStrategy::NONLIN_OPTIM) 
+	{
+		search = SearchStrategy::GOLDEN_SECTION;
+	}
+	
 	if (search == SearchStrategy::BRUTE_FORCE)
 	{
 		bruteforce_depth(depth, cost, sigma, 
 			neighs, mfpc, scene, 
 			ck, cl, minv, maxv, nbsample + nbsupplsample, 
-			pairing
+			pairing, metric
 		);	
 	}
 	else if (search == SearchStrategy::GOLDEN_SECTION) 
 	{
+		const double precision =  metric ? 1. : std::sqrt(0.1);
 		gss_depth(
 			depth, cost, sigma, 
 			neighs, mfpc, scene, 
-			ck, cl, minv, maxv, std::sqrt(0.1),
-			pairing		
+			ck, cl, minv, maxv, precision,
+			pairing, metric	
 		);		
 	}
 	else 

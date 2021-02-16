@@ -125,7 +125,9 @@ int main(int argc, char* argv[])
 		InitStrategy::REGULAR_GRID, 
 		ObservationsPairingStrategy::CENTRALIZED,
 		BeliefPropagationStrategy::NONE, 
-		search
+		search,
+		true, /* metric */ config.use_probabilistic, true, /* filter */
+		0.01 /* precision */
 	};
 	PRINT_INFO(strategies);
 	
@@ -135,9 +137,9 @@ int main(int argc, char* argv[])
 	for (std::size_t frame = 0; frame < pictures.size(); ++frame)
 	{
 		PRINT_INFO("=== Estimate depth of frame = " << frame);	
-		RawCoarseDepthMap dm{mfpc, 2. /* mfpc.obj2v(maxd) */, mfpc.obj2v(mind)};
+		RawCoarseDepthMap dm{mfpc, 2. /* mfpc.obj2v(maxd) */, 20. /* mfpc.obj2v(mind) */};
 	
-		if (config.use_probabilistic)
+		if (strategies.probabilistic)
 		{	
 			RawCoarseDepthMap confidencedm{mfpc, 0., 10.};
 			estimate_probabilistic_depth(dm, confidencedm, mfpc, pictures[frame], strategies);
@@ -152,7 +154,7 @@ int main(int argc, char* argv[])
 			PRINT_INFO("=== Saving depthmap...");
 			std::ostringstream name; 
 			
-			if (config.use_probabilistic) name << "pdm-";
+			if (strategies.probabilistic) name << "pdm-";
 			else name << "dm-";
 			
 			if (mfpc.I() > 0u) name << "blade-";

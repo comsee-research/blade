@@ -23,10 +23,40 @@
 
 #define DEBUG_PROBA						0
 
-constexpr bool use_true_sigma				= true;
-constexpr bool use_sigmac					= false and use_true_sigma;
-constexpr bool use_sigmav					= (not use_sigmac) and use_true_sigma;
-constexpr bool use_optimization 			= false;
+static constexpr bool use_true_sigma		= true;
+static constexpr bool use_sigmac			= false and use_true_sigma;
+static constexpr bool use_sigmav			= (not use_sigmac) and use_true_sigma;
+static constexpr bool use_optimization 		= false;
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+bool is_contrasted_enough(
+	const MIA& mia, const Image& scene,
+	std::size_t ck, std::size_t cl
+) 
+{
+	constexpr double threshold_contrast = 5.;
+	
+	const int W 		= int(std::ceil(mia.diameter()));
+	const auto center 	= mia.nodeInWorld(ck,cl); 
+	const double radius = mia.radius() - 1.5;
+	
+	Image r;
+	cv::getRectSubPix(
+		scene, cv::Size{W,W}, 
+		cv::Point2d{center[0], center[1]}, r
+	);				
+	Image m = r.clone();
+	trim_binarize(m, radius);
+	
+	cv::Scalar mean, std;
+	cv::meanStdDev(r, mean, std, m); 
+	
+	const double contrast = std[0];
+	
+	return (contrast >= threshold_contrast);
+}
 
 //******************************************************************************
 //******************************************************************************
@@ -39,52 +69,50 @@ void compute_depthmap(
 )
 {	
 	constexpr double nbsample = 15.;
-	constexpr double N = 1.96;
-	constexpr double PHI = (1. + std::sqrt(5.)) / 2.;
-	constexpr double PHI2 = PHI * PHI;
+	constexpr double N = 1.96; //FIXME: increase N ?
 	
 	std::queue<IndexPair> microimages;
 	microimages.emplace(kinit, linit);
 	
-	while(not (microimages.empty()))
+	while (not (microimages.empty()))
 	{
 		auto [ck, cl] = microimages.front(); //current indexes
 		microimages.pop();
 				
 		//Already computed, nothing to do
-		if(dm.state(ck,cl) == DepthInfo::State::COMPUTED) continue;
+		if (dm.state(ck,cl) == DepthInfo::State::COMPUTED) continue;
 		
 		//Compute first hypothesis using inner ring
-		if(dm.state(ck,cl) == DepthInfo::State::UNINITIALIZED)
+		if (dm.state(ck,cl) == DepthInfo::State::UNINITIALIZED)
 		{
-			double hypothesis = 0., cost = -1., sigma = -1.;
+			double hypothesis = 0., cost = 0., sigma = -1.;
 			VirtualDepth vd{hypothesis};		
-			
-		 	//ensure strategy is not based on optim for init
-		 	SearchStrategy search = strategies.search;
-		 	if (search == SearchStrategy::NONLIN_OPTIM) search = SearchStrategy::GOLDEN_SECTION;
-				 	
+							 	
 			//get neighbors
 			std::map<double, std::vector<IndexPair>> ordered_neighs = neighbors_by_rings(mfpc.mia(), ck, cl, 3.5, 2.);
+			
+			//filter texture		 	
+		 	if (not (strategies.filter) or is_contrasted_enough(mfpc.mia(), scene, ck, cl))
+		 	{
+			 	initialize_depth(
+			 		vd, &cost, &sigma,
+			 		ordered_neighs[1.7], mfpc, scene, //micro-images of the same type
+			 		ck, cl,
+			 		dm.min_depth(), dm.max_depth(), nbsample,
+			 		strategies.pairing, strategies.search, false // strategies.metric
+			 	);
+			 	
+			 	hypothesis = vd.v;
+		 	}
 		 	
-		 	initialize_depth(
-		 		vd, &cost, &sigma,
-		 		ordered_neighs[1.7], mfpc, scene, 
-		 		ck, cl,
-		 		dm.min_depth(), dm.max_depth(), nbsample,
-		 		strategies.pairing, search
-		 	);
-		 	
-		 	hypothesis = vd.v;
-		 	
-		 	if(not dm.is_valid_depth(hypothesis) or cost == 0.)
+		 	if (cost == 0. or not dm.is_valid_depth(hypothesis))
 		 	{
 		 		dm.depth(ck, cl) = DepthInfo::NO_DEPTH;
 		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
 		 		
-		 		for(auto &n: ordered_neighs[1.]) 
+		 		for (auto &n: ordered_neighs[1.]) 
 		 		{
-		 			if(dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED)  
+		 			if (dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED)  
 		 			{
 		 				microimages.push(n);
 		 			}
@@ -99,7 +127,7 @@ void compute_depthmap(
 		//Compute depth hypothesis
 		if(dm.state(ck,cl) == DepthInfo::State::INITIALIZED)
 		{
-			double depth = dm.depth(ck, cl), cost = -1., sigma = -1.;
+			double depth = dm.depth(ck, cl), cost = 0., sigma = -1.;
 			VirtualDepth vd{depth};		
 			
 			//compute neighbors
@@ -113,32 +141,32 @@ void compute_depthmap(
 			else if (strategies.search == SearchStrategy::BRUTE_FORCE)
 			{
 				const double stepv = (dm.max_depth() - dm.min_depth()) / nbsample;
-				const double minv = depth - stepv;
-				const double maxv = depth + stepv;
-			
+				const double dmin = depth - stepv;
+				const double dmax = depth + stepv;
+				
 				bruteforce_depth(vd, &cost, &sigma, 
 					neighs, mfpc, scene, 
-					ck, cl, minv, maxv, nbsample, 
-					strategies.pairing
+					ck, cl, dmin, dmax, nbsample, 
+					strategies.pairing, strategies.metric
 				);
 		 	}
 		 	else if (strategies.search == SearchStrategy::GOLDEN_SECTION)
 			{
-				const double dmin = depth - N;
+				const double dmin = std::max(depth - N, dm.min_depth());;
 				const double dmax = depth + N;
-				const double minv = std::max(dmin, dm.min_depth());
-				const double maxv = dmax;
-				
+			
 				gss_depth(vd, &cost, &sigma, 
 					neighs, mfpc, scene, 
-					ck, cl, minv, maxv, std::sqrt(0.001), 
-					strategies.pairing
-				);		
+					ck, cl, dmin, dmax, std::sqrt(strategies.precision), 
+					strategies.pairing, strategies.metric
+				);
 			}
 		 	
-		 	if (cost != 0.) depth = vd.v;
-
-			if (dm.is_valid_depth(depth)) dm.depth(ck, cl) = depth;
+			if (cost != 0. and dm.is_valid_depth(vd.v)) 
+			{
+				depth = vd.v;
+				dm.depth(ck, cl) = depth;
+			}
 		 	dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
 			
 			for(auto &n: neighs) 
@@ -221,35 +249,35 @@ void compute_probabilistic_depthmap(
 		//Compute hypothesis
 		if (dm.state(ck, cl) == DepthInfo::State::UNINITIALIZED)
 		{
-			double hypothesis = 0., cost = -1., sigma = -1.;
+			double hypothesis = 0., cost = 0., sigma = -1.;
 			VirtualDepth vd{hypothesis};		
-			
-		 	//ensure strategy is not based on optim for init
-		 	SearchStrategy search = strategies.search;
-		 	if (search == SearchStrategy::NONLIN_OPTIM) search = SearchStrategy::GOLDEN_SECTION;
-				 	
+							 	
 			//get neighbors		 	
 		 	std::map<double, std::vector<IndexPair>> ordered_neighs = neighbors_by_rings(mfpc.mia(), ck, cl, 3.5, 2., 12.);
 		 	
-		 	for(auto &n: ordered_neighs[1.]) 
+		 	for (auto &n: ordered_neighs[1.]) 
 	 		{
-	 			if(dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED)  
+	 			if (dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED)  
 	 			{
 	 				microimages.push(n);
 	 			}
 	 		}
 		 	
-		 	initialize_depth(
-		 		vd, &cost, &sigma,
-		 		ordered_neighs[1.7], mfpc, scene, 
-		 		ck, cl,
-		 		dm.min_depth(), dm.max_depth(), nbsample,
-		 		strategies.pairing, search
-		 	);
+		 	//filter texture		 	
+		 	if (not (strategies.filter) or is_contrasted_enough(mfpc.mia(), scene, ck, cl))
+		 	{
+			 	initialize_depth(
+			 		vd, &cost, &sigma,
+			 		ordered_neighs[1.7], mfpc, scene, 
+			 		ck, cl,
+			 		dm.min_depth(), dm.max_depth(), nbsample,
+			 		strategies.pairing, strategies.search, false //strategies.metric
+			 	);
+			 	
+			 	hypothesis = vd.v;
+		 	}
 		 	
-		 	hypothesis = vd.v;
-		 	
-		 	if(not dm.is_valid_depth(hypothesis) or cost == 0.)
+		 	if (cost == 0. or not dm.is_valid_depth(hypothesis))
 		 	{
 		 		dm.depth(ck, cl) = DepthInfo::NO_DEPTH;
 		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
@@ -404,7 +432,7 @@ void compute_probabilistic_depthmap(
 					
 					gss_depth(vd, &cost, &stddev, 
 						neighs, mfpc, scene, 
-						ck, cl, minv, maxv, std::sqrt(0.0001), 
+						ck, cl, minv, maxv, std::sqrt(strategies.precision), 
 						strategies.pairing
 					);
 					

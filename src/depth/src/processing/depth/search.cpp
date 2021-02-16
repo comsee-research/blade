@@ -135,10 +135,14 @@ void bruteforce_depth(
 	const std::vector<IndexPair>& neighs, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t ck, std::size_t cl, //current indexes
-	double minv, double maxv, double nbsample,
-	ObservationsPairingStrategy pairing
+	double dmin, double dmax, double nbsample,
+	ObservationsPairingStrategy pairing,
+	bool metric
 )
 {
+	const double min = metric ? mfpc.v2obj(dmax) : dmin;
+	const double max = metric ? mfpc.v2obj(dmin) : dmax;
+	
 	const std::size_t I = mfpc.I();	
 	const bool useBlur = (I > 0u); 
 	
@@ -158,33 +162,42 @@ void bruteforce_depth(
 		make_functors(functors, neighs, ck, cl, mfpc, scene, pairing);
 		
 	 	//evaluate observations, find min cost
-		const double stepv = (maxv - minv) / nbsample;
+		const double step = (max - min) / nbsample;
 		double mincost = 1e9;
 		
 		if (cost) *cost = 0.;
 		if (sigma) *sigma = 0.;
 		
-		for (double v = minv; v <= maxv; v += stepv)
+		for (double d = min; d <= max; d += step)
 		{
+			const double v = metric ? mfpc.obj2v(d) : d;
+			
 			if (std::fabs(v) < 2.) continue;
 			
 			typename FunctorError_t::ErrorType err;
 			VirtualDepth hypothesis{v};
-			RMSE rmse{0., 0};
 			
 			std::vector<double> costs; 
 			if (sigma) costs.reserve(functors.size());
+			
+			double total_cost = 0.; double total_weight = 0.;
 			
 			for (auto& f : functors)
 			{
 				if (f(hypothesis, err))
 				{
-					rmse.add(err[0]);
-					if (sigma) costs.emplace_back(err[0]*err[0]);	
+					const double error 				= err[0];
+					const double weight 			= f.weight(v);
+					const double weighted_err 		= weight * error;
+					
+					total_cost 		+= weighted_err;
+					total_weight  	+= weight;
+					
+					if (sigma) costs.emplace_back(weighted_err);
 				}				
 			}
-			
-			const double c = rmse.get();
+						
+			const double c = (total_weight != 0.) ? (total_cost / total_weight) : 0.;
 			
 			if (c < mincost) 
 			{
@@ -208,12 +221,16 @@ void gss_depth(
 	const std::vector<IndexPair>& neighs, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t ck, std::size_t cl, //current indexes
-	double minv, double maxv, double tol,
-	ObservationsPairingStrategy pairing
+	double dmin, double dmax, double tol,
+	ObservationsPairingStrategy pairing,
+	bool metric
 )
 {
 	constexpr double invphi 	= (std::sqrt(5.) - 1.) / 2.;
 	constexpr double invphi2 	= (3. - std::sqrt(5.)) / 2.;
+	
+	const double min = metric ? mfpc.v2obj(dmax) : dmin;
+	const double max = metric ? mfpc.v2obj(dmin) : dmax;
 	
 	const std::size_t I = mfpc.I();	
 	const bool useBlur = (I > 0u); 
@@ -233,10 +250,10 @@ void gss_depth(
 		
 		make_functors(functors, neighs, ck, cl, mfpc, scene, pairing);
 		
-		auto F = [&](double v) -> double {
+		auto F = [&functors](double v) -> double {
 			typename FunctorError_t::ErrorType err;
+			
 			VirtualDepth hypothesis{v};
-			//RMSE rmse{0., 0};
 			double total_cost = 0.; double total_weight = 0.;
 			
 			for (auto& f : functors)
@@ -245,39 +262,48 @@ void gss_depth(
 				{
 					const double error 				= err[0];
 					const double weight 			= f.weight(v);
-					const double weighted_sqr_err	= weight * error * error;
 					const double weighted_err 		= weight * error;
 					
-					//rmse.add(error);
-					total_cost 		+= weighted_err; //weighted_sqr_err; //
+					total_cost 		+= weighted_err;
 					total_weight  	+= weight;
 				}				
 			}
-			double e = 0.;		
-			if (total_weight != 0.) e = (total_cost / total_weight); //std::sqrt(total_cost / total_weight); //	
-			return e; //rmse.get();
+			
+			return (total_weight != 0.) ? (total_cost / total_weight) : 0.;
 		};
 		
 	 	//run golden section search to find min cost	 	
-	 	double a = std::min(minv, maxv);
-	 	double b = std::max(minv, maxv);
+	 	double a = std::min(min, max);
+	 	double b = std::max(min, max);
 	 	double h = b - a;
 	 	
 	 	const int n = static_cast<int>(std::ceil(std::log(tol / h) / std::log(invphi)));
 	 	
 		if (cost) *cost = 0.;
 		if (sigma) *sigma = (b - a) / 2.;
-		depth.v = (a + b) / 2.;
+		
+		depth.v = metric ? mfpc.obj2v((a + b) / 2.) : (a + b) / 2.;
 	 	
 	 	if (h <= tol) return; 
 	 	
 		double c = a + invphi2 * h;
-		if (c > -2. and c < 2.) c = -2.01;
-		double d = a + invphi * h;
-		if (d > -2. and d < 2.) d = 2.01;
+		double c_ = metric ? mfpc.obj2v(c) : c;
+		if (std::fabs(c_) < 2.) 
+		{
+			c_ = -2.01;
+			c  = metric ? mfpc.v2obj(c_) : c_;
+		}
 		
-		double yc = F(c);
-		double yd = F(d);
+		double d = a + invphi * h;
+		double d_ = metric ? mfpc.obj2v(d) : d;
+		if (std::fabs(d_) < 2.) 
+		{
+			d_ = 2.01;
+			d  = metric ? mfpc.v2obj(d_) : d_;
+		}
+		
+		double yc = F(c_);
+		double yd = F(d_);
 		
 		if (yc == 0. and yd == 0.) return;
 		
@@ -295,8 +321,13 @@ void gss_depth(
 				yc = yd;
 				h = invphi * h;
 				d = a + invphi * h;
-				if (d > -2. and d < 2.) d = 2.01;
-				yd = F(d);						
+				d_ = metric ? mfpc.obj2v(d): d;
+				if (std::fabs(d_) < 2.) 
+				{
+					d_ = 2.01;
+					d  = metric ? mfpc.v2obj(d_) : d_;
+				}
+				yd = F(d_);						
 			}
 			else //(yc < yd)
 			{
@@ -305,8 +336,13 @@ void gss_depth(
 				yd = yc;
 				h = invphi * h;
 				c = a + invphi2 * h;
-				if (c > -2. and c < 2.) c = -2.01;
-				yc = F(c);
+				c_ = metric ? mfpc.obj2v(c): c;
+				if (std::fabs(c_) < 2.) 
+				{
+					c_ = -2.01;
+					c  = metric ? mfpc.v2obj(c_) : c_;
+				}
+				yc = F(c_);
 			}	
 		}
 		
@@ -315,17 +351,16 @@ void gss_depth(
 							
 		if (yc > yd or yc == 0.)
 		{
-			depth.v = (c + b) / 2.;
+			depth.v =  metric ? mfpc.obj2v((c + b) / 2.) : (c + b) / 2.;
 			if (cost) *cost = yd;
 			if (sigma) *sigma = (b - c) / 2.;
 		}
 		else
 		{
-			depth.v = (a + d) / 2.;
+			depth.v = metric ? mfpc.obj2v((a + b) / 2.) : (a + b) / 2.;
 			if (cost) *cost = yc;
 			if (sigma) *sigma = (d - a) / 2.;
 		}	
 	//--------------------------------------------------------------------------
 	}, vfunctor);
 }
-

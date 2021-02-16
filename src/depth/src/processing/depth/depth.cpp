@@ -23,7 +23,6 @@
 
 #define	DISPLAY_FRAME					0
 #define ENABLE_MULTI_THREAD 			1
-#define USE_EROSION_FILTER				0
 
 //******************************************************************************
 //******************************************************************************
@@ -78,33 +77,54 @@ void estimate_depth(
 	const double computational_time = std::chrono::duration<double>(t_end-t_start).count();
 	
 	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
-	display(dm);
+	rcdm.copy_map(dm);
+	display(rcdm);
 	
 //------------------------------------------------------------------------------	
+#if 0
 	// Filtered depth map
 	PRINT_INFO("=== Filtering depth map...");	
-#if USE_EROSION_FILTER
-	RawCoarseDepthMap erodeddm = erosion_filter_depth(dm);
-	RawCoarseDepthMap filtereddm = median_filter_depth(erodeddm, 4.1);
-#else
+#if 0
+	inplace_minmax_filter_depth(dm, 2., 15.);	
 	RawCoarseDepthMap filtereddm = median_filter_depth(dm, 4.1);
-#endif
 	PRINT_INFO("=== Filtering finished! Displaying depth map...");
-#if USE_EROSION_FILTER
-	display(erodeddm);		
-#endif
 	display(filtereddm);
-
+#else
+	RawCoarseDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
+	#if 0
+		const RawCoarseDepthMap edm = morph_erosion_filter_depth(filtereddm);
+		const RawCoarseDepthMap ddm = morph_dilation_filter_depth(filtereddm);
+		const RawCoarseDepthMap odm = morph_opening_filter_depth(filtereddm);
+		const RawCoarseDepthMap cdm = morph_closing_filter_depth(filtereddm);
+		const RawCoarseDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
+		const RawCoarseDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
+		const RawCoarseDepthMap tetdm = morph_tet_filter_depth(filtereddm);
+		const RawCoarseDepthMap occodm = morph_occo_filter_depth(filtereddm);
+	#endif
+	PRINT_INFO("=== Filtering finished! Displaying depth map...");
+	display(filtereddm);
+	#if 0
+		display(edm);
+		display(ddm);
+		display(odm);
+		display(cdm);
+		display(sdm);
+		display(dytdm);
+		display(tetdm);
+		display(occodm);
+		
+		wait();
+	#endif
+#endif
+	#endif
 //------------------------------------------------------------------------------	
 	// Convert to metric depth map
 	PRINT_INFO("=== Converting depth map...");	
-	RawCoarseDepthMap mdm = filtereddm.as_metric();
+	RawCoarseDepthMap mdm = dm.as_metric();
 	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
 	display(mdm);	
 	
 	wait();
-	
-	rcdm.copy_map(filtereddm);
 }
 
 //******************************************************************************
@@ -163,37 +183,56 @@ void estimate_probabilistic_depth(
 	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
 	
 	rcdm.copy_map(dm);
-	display(dm);
-	
-	
+	display(rcdm);
+		
 //------------------------------------------------------------------------------	
+#if 0
 	// Filtered depth map
-	PRINT_INFO("=== Filtering depth map...");	
-#if USE_EROSION_FILTER
-	RawCoarseDepthMap erodeddm = erosion_filter_depth(dm);
-	RawCoarseDepthMap filtereddm = median_filter_depth(erodeddm); //, 4.1);
+	PRINT_INFO("=== Filtering depth map...");
+#if 0
+		inplace_minmax_filter_depth(dm, 2., 15.);	
+		RawCoarseDepthMap filtereddm = median_filter_depth(dm); //, 4.1);
+		PRINT_INFO("=== Filtering finished! Displaying depth map...");
+		display(filtereddm);
+		
+		PRINT_INFO("=== Displaying confidence map...");
+		display(confidencedm);
 #else
-	RawCoarseDepthMap filtereddm = median_filter_depth(dm); //, 4.1);
-#endif
+	RawCoarseDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
+	#if 0
+		const RawCoarseDepthMap edm = morph_erosion_filter_depth(filtereddm);
+		const RawCoarseDepthMap ddm = morph_dilation_filter_depth(filtereddm);
+		const RawCoarseDepthMap odm = morph_opening_filter_depth(filtereddm);
+		const RawCoarseDepthMap cdm = morph_closing_filter_depth(filtereddm);
+		const RawCoarseDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
+		const RawCoarseDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
+		const RawCoarseDepthMap tetdm = morph_tet_filter_depth(filtereddm);
+		const RawCoarseDepthMap occodm = morph_occo_filter_depth(filtereddm);
+	#endif
 	PRINT_INFO("=== Filtering finished! Displaying depth map...");
-	
-#if USE_EROSION_FILTER
-	display(erodeddm);		
-#endif
 	display(filtereddm);
-	
-	PRINT_INFO("=== Displaying confidence map...");
-	display(confidencedm);
-	
+	#if 0
+		display(edm);
+		display(ddm);
+		display(odm);
+		display(cdm);
+		display(sdm);
+		display(dytdm);
+		display(tetdm);
+		display(occodm);
+		
+		wait();
+	#endif
+#endif
+#endif
 //------------------------------------------------------------------------------	
 	// Convert to metric depth map
 	PRINT_INFO("=== Converting depth map...");	
-	RawCoarseDepthMap mdm = filtereddm.as_metric();
+	RawCoarseDepthMap mdm = dm.as_metric();
 	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
 	display(mdm);	
 	
 	wait();
-	rcdm.copy_map(filtereddm);
 }
 
 //******************************************************************************

@@ -4,16 +4,12 @@
 
 //optimization
 #include "optimization/depth.h"
-#include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
-#include "optimization/errors/disparity.h" //DisparityCostError
+#include "optimization/errors/disparity.h" //DisparityCostError, BlurAwareDisparityCostError
 
-#include <pleno/processing/tools/rmse.h>
 #include <pleno/processing/tools/stats.h>
 
 #include <pleno/io/printer.h>
 
-#include "strategy.h"
-#include "neighbors.h"
 #include "pairing.h"
 
 #define DEBUG_PROBA						0

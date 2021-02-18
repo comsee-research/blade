@@ -3,7 +3,6 @@
 #include <vector>
 #include <map>
 
-
 #include <pleno/geometry/mia.h>
 
 #include "../../types.h"

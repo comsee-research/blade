@@ -10,8 +10,7 @@
 #include <pleno/graphic/viewer_2d.h>
 
 #include "optimization/depth.h" //lma
-#include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
-#include "optimization/errors/disparity.h" //DisparityCostError
+#include "optimization/errors/disparity.h" //DisparityCostError, BlurAwareDisparityCostError
 
 #include "../../types.h"
 #include "neighbors.h"

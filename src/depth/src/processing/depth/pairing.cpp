@@ -5,7 +5,8 @@ void make_functors(
 	Functors& functors, const std::vector<IndexPair>& neighs,
 	std::size_t ck, std::size_t cl,
 	const PlenopticCamera& mfpc, const Image& scene, 
-	ObservationsPairingStrategy mode
+	ObservationsPairingStrategy mode,
+	double cu, double cv
 )
 {
 	functors.clear();
@@ -50,7 +51,7 @@ void make_functors(
 			functors.emplace_back(
 				refview, targetview,
 				ref, target,
-				mfpc
+				mfpc, P2D{cu, cv}
 			);		
 	 	}
 	}
@@ -91,7 +92,7 @@ void make_functors(
 				functors.emplace_back(
 					vview[i], vview[j],
 					vmi[i], vmi[j],
-					mfpc
+					mfpc, P2D{cu, cv}
 				);
 			}
 		}
@@ -139,21 +140,22 @@ void make_functors_from_obs(
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
-#include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
-#include "optimization/errors/disparity.h" //DisparityCostError
+#include "optimization/errors/disparity.h" //DisparityCostError, BlurAwareDisparityCostError
 
 template void make_functors(
 	std::vector<BlurAwareDisparityCostError>& functors, const std::vector<IndexPair>& neighs,
 	std::size_t ck, std::size_t cl,
 	const PlenopticCamera& mfpc, const Image& scene, 
-	ObservationsPairingStrategy mode
+	ObservationsPairingStrategy mode,
+	double cu, double cv
 );
 
 template void make_functors(
 	std::vector<DisparityCostError>& functors, const std::vector<IndexPair>& neighs,
 	std::size_t ck, std::size_t cl,
 	const PlenopticCamera& mfpc, const Image& scene, 
-	ObservationsPairingStrategy mode
+	ObservationsPairingStrategy mode,
+	double cu, double cv
 );
 
 template void make_functors_from_obs(

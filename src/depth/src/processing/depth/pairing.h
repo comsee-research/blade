@@ -11,7 +11,8 @@ void make_functors(
 	Functors& functors, const std::vector<IndexPair>& neighs,
 	std::size_t ck, std::size_t cl,
 	const PlenopticCamera& mfpc, const Image& scene, 
-	ObservationsPairingStrategy mode
+	ObservationsPairingStrategy mode,
+	double cu = -1., double cv = -1.
 );
 
 template <typename Functors>

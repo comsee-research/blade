@@ -1,23 +1,18 @@
 #include "compute.h"
 
-#include <pleno/processing/imgproc/improcess.h>
-
-#include <pleno/processing/tools/lens.h>
-#include <pleno/processing/tools/rmse.h>
-#include <pleno/processing/tools/stats.h>
-
 #include <pleno/io/printer.h>
-#include "io/choice.h"
+#include <pleno/io/choice.h>
 
 #include <pleno/graphic/display.h>
 #include "../../graphic/display.h"
+
+#include <pleno/processing/imgproc/trim.h>
+
 
 #include "geometry/depth/RawCoarseDepthMap.h"
 
 #include "strategy.h"
 #include "neighbors.h"
-#include "pairing.h"
-#include "filter.h"
 #include "initialization.h"
 #include "search.h"
 
@@ -40,7 +35,7 @@ bool is_contrasted_enough(
 	
 	const int W 		= int(std::ceil(mia.diameter()));
 	const auto center 	= mia.nodeInWorld(ck,cl); 
-	const double radius = mia.radius() - 1.5;
+	const double radius = mia.radius() - mia.border();
 	
 	Image r;
 	cv::getRectSubPix(

@@ -1,19 +1,9 @@
 #include "initialization.h"
 
 #include <random>
-#include <variant> //std::variant, std::monostate; std::visit
-
-#include <pleno/processing/tools/rmse.h> //RMSE
-#include <pleno/processing/tools/stats.h> //median, mean, iqr, skewness, kurtosis, etc.
 
 #include <pleno/io/printer.h> //DEBUG_ASSERT, PRINT_DEBUG
 
-#include "optimization/depth.h" //lma
-#include "optimization/errors/blurawaredisp.h" //BlurAwareDisparityCostError
-#include "optimization/errors/disparity.h" //DisparityCostError
-
-#include "depth.h"
-#include "pairing.h" //make_functors
 #include "search.h" //gss, bruteforce
 
 #define USE_SAME_SEED 1

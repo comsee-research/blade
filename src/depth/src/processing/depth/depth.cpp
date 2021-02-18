@@ -2,14 +2,8 @@
 
 #include <thread> //std::thread
 
-#include <pleno/processing/imgproc/improcess.h>
-
-#include <pleno/processing/tools/lens.h>
-#include <pleno/processing/tools/rmse.h>
-#include <pleno/processing/tools/stats.h>
-
 #include <pleno/io/printer.h>
-#include "io/choice.h"
+#include <pleno/io/choice.h>
 
 #include <pleno/graphic/display.h>
 

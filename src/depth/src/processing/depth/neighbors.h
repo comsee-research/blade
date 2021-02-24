@@ -15,12 +15,13 @@ std::vector<IndexPair> neighbors(
 	double v, double minv = 5., double maxv = 12.
 );
 
-std::vector<IndexPair> half_neighbors(
+std::map<double, std::vector<IndexPair>> neighbors_by_rings(
 	const MIA& mia, std::size_t k, std::size_t l, 
 	double v, double minv = 5., double maxv = 12.
 );
 
-std::map<double, std::vector<IndexPair>> neighbors_by_rings(
+#if 0
+std::vector<IndexPair> half_neighbors(
 	const MIA& mia, std::size_t k, std::size_t l, 
 	double v, double minv = 5., double maxv = 12.
 );
@@ -29,3 +30,4 @@ std::map<double, std::vector<IndexPair>> half_neighbors_by_rings(
 	const MIA& mia, std::size_t k, std::size_t l, 
 	double v, double minv = 5., double maxv = 12.
 );
+#endif

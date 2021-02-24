@@ -11,5 +11,7 @@ V_DEFINE_PROPERTIES(DepthMapConfig)
 
 V_DEFINE_PROPERTIES(DepthMapsConfig)
 (    
+    V_DEFINE_PROPERTY(metric, bool(false), "Metric (true) or virtual (false) depth map")
+    V_DEFINE_PROPERTY(coarse, bool(true), "Coarse (true) or dense (false) depth map")
     V_DEFINE_PROPERTY(maps, std::vector<DepthMapConfig>(0), "Depth Maps configurations")
 )

@@ -118,31 +118,34 @@ int main(int argc, char* argv[])
 		}	
 	);	
 	
-	PRINT_WARN("\t3.2) Load depth estimation config");
-	SearchStrategy search = SearchStrategy(config.method);
-		
-	DepthEstimationStrategy strategies{
-		InitStrategy::REGULAR_GRID, 
-		ObservationsPairingStrategy::CENTRALIZED,
-		BeliefPropagationStrategy::NONE, 
-		search,
-		true, /* metric */ config.use_probabilistic, true, /* filter */
-		0.01 /* precision */
-	};
+	PRINT_WARN("\t3.2) Load depth estimation config");		
+	DepthEstimationStrategy strategies;
+	v::load(config.path.strategy, v::make_serializable(&strategies));
+	
 	PRINT_INFO(strategies);
 	
 	PRINT_WARN("\t3.3) Estimate depthmaps");	
 	const auto [mind, maxd] = initialize_min_max_distance(mfpc);
+	const double dmin = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
+			2. /* mfpc.obj2v(maxd) */
+		: 	std::min(mfpc.v2obj(15.), mind);
+	
+	const double dmax = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
+			15. /* mfpc.obj2v(mind) */
+		: 	std::min(mfpc.v2obj(2.), maxd);
+	
 	
 	for (std::size_t frame = 0; frame < pictures.size(); ++frame)
 	{
 		PRINT_INFO("=== Estimate depth of frame = " << frame);	
-		RawCoarseDepthMap dm{mfpc, 2. /* mfpc.obj2v(maxd) */, 20. /* mfpc.obj2v(mind) */};
+		RawDepthMap dm{
+			mfpc, dmin, dmax,
+			strategies.dtype, strategies.mtype
+		};
 	
 		if (strategies.probabilistic)
 		{	
-			RawCoarseDepthMap confidencedm{mfpc, 0., 10.};
-			estimate_probabilistic_depth(dm, confidencedm, mfpc, pictures[frame], strategies);
+			estimate_probabilistic_depth(dm, mfpc, pictures[frame], strategies);
 		}
 		else
 		{

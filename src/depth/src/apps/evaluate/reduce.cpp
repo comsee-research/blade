@@ -36,7 +36,7 @@ std::map<Index, double> reduce(const std::map<Index, Pose>& maps)
 	return dists;
 }
 
-std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps)
+std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps)
 {
 	std::map<Index, double> dists;
 	
@@ -46,11 +46,11 @@ std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps)
 	{
 		is_virtual_depth = is_virtual_depth and dm.is_virtual_depth();
 		
-		std::vector<double> vs; vs.reserve(dm.mia().width() * dm.mia().height());
+		std::vector<double> vs; vs.reserve(dm.width() * dm.height());
 		
-		for (std::size_t k = 0; k < dm.mia().width(); ++k)
+		for (std::size_t k = 0; k < dm.width(); ++k)
 		{
-			for (std::size_t l = 0; l < dm.mia().height(); ++l)
+			for (std::size_t l = 0; l < dm.height(); ++l)
 			{
 				if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
 				{
@@ -69,7 +69,7 @@ std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps)
 	return dists;
 }
 
-std::map<Index, double> reduce(const std::map<Index, RawCoarseDepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs)
+std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs)
 {
 	std::map<Index, double> dists;
 	bool is_virtual_depth = true;

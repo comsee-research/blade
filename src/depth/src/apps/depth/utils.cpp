@@ -47,17 +47,13 @@ Config_t parse_args(int argc, char *argv[])
 			po::value<std::string>()->default_value(""),
 			"Path to observations file"
 		)
+		("strategy,s",
+			po::value<std::string>()->default_value(""),
+			"Path to depth estimation strategies configuration file"
+		)
 		("dm",
 			po::value<std::string>()->default_value(""),
 			"Path to depthmap file"
-		)
-		("proba", 
-			po::value<bool>()->default_value(true),
-			"Enable probabilistic estimation"
-		)
-		("method,m", 
-			po::value<std::uint16_t>()->default_value(SearchStrategy::GOLDEN_SECTION),
-			"Depth search method:\nNONLIN_OPTIM=0, BRUTE_FORCE=1, GOLDEN_SECTION=2"
 		)
 		("output,o",
 			po::value<std::string>()->default_value("depth.png"),
@@ -110,9 +106,7 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.features 	= vm["features"].as<std::string>();
 	config.path.output 		= vm["output"].as<std::string>();
 	config.path.dm 			= vm["dm"].as<std::string>();
-	
-	config.use_probabilistic 	= vm["proba"].as<bool>();
-	config.method				= vm["method"].as<std::uint16_t>();
+	config.path.strategy	= vm["strategy"].as<std::string>();
 	
 	return config; 
 }

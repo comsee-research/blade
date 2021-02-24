@@ -378,7 +378,7 @@ void export_cost_function_from_obs(
 //******************************************************************************
 //******************************************************************************
 void export_depth_histogram(
-	const RawCoarseDepthMap& dm
+	const RawDepthMap& dm
 ) 
 {
 	std::ofstream ofs(
@@ -393,9 +393,9 @@ void export_depth_histogram(
 	
 	std::ostringstream oss;
 	
-	for (std::size_t k = 0; k < dm.mia().width(); ++k)
+	for (std::size_t k = 0; k < dm.width(); ++k)
 	{
-		for (std::size_t l = 0; l < dm.mia().height(); ++l)
+		for (std::size_t l = 0; l < dm.height(); ++l)
 		{
 			oss << k << "," << l << "," << dm.depth(k,l) << "\n";			
 		}

@@ -27,7 +27,7 @@ set(MULTIFOCUS_INCDIRS "src" "geometry" "graphic" "io" "optimization" "processin
 ##SOURCES
 set(MULTIFOCUS_SRCS 
 	##---------------
-	src/geometry/depth/RawCoarseDepthMap.cpp
+	src/geometry/depth/RawDepthMap.cpp
 	##---------------
 	src/optimization/depth.cpp
 	src/optimization/errors/disparity.cpp
@@ -40,6 +40,7 @@ set(MULTIFOCUS_SRCS
 	src/processing/depth/search.cpp
 	src/processing/depth/export.cpp
 	src/processing/depth/compute.cpp
+	src/processing/depth/strategy.cpp
 	##---------------
 )
 

@@ -18,7 +18,7 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/RawCoarseDepthMap.h"
+#include "geometry/depth/RawDepthMap.h"
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
 	std::map<Index, double> gtdepth = load_gt_dist(config.path.gt);
 	
 	using DepthMapsType = std::variant<
-		std::map<Index, RawCoarseDepthMap>,
+		std::map<Index, RawDepthMap>,
 		std::map<Index, XYZs>,
 		std::map<Index, Pose>
 	>;
@@ -108,12 +108,12 @@ int main(int argc, char* argv[])
 		v::load(config.path.dm, cfg);	
 		
 		// load
-		vdms.emplace<std::map<Index, RawCoarseDepthMap>>(load(cfg, mfpc));	
+		vdms.emplace<std::map<Index, RawDepthMap>>(load(cfg, mfpc));	
 	}
 	else if (config.path.csv != "")
 	{		
 		// load
-		vdms.emplace<std::map<Index, RawCoarseDepthMap>>(load_from_csv(config.path.csv, mfpc));	
+		vdms.emplace<std::map<Index, RawDepthMap>>(load_from_csv(config.path.csv, mfpc));	
 	}
 	else if (config.path.xyz != "")
 	{
@@ -152,7 +152,7 @@ int main(int argc, char* argv[])
 		//reduce
 		std::map<Index, double> depths;
 		
-		if constexpr (std::is_same_v<T, std::map<Index, RawCoarseDepthMap>>)
+		if constexpr (std::is_same_v<T, std::map<Index, RawDepthMap>>)
 		{
 			if (config.path.features != "") depths = reduce(dms, obs);
 			else depths = reduce(dms);

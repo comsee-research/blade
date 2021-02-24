@@ -13,20 +13,11 @@ void make_functors(
 	
 	const std::size_t I = mfpc.I();
 	const int W = std::ceil(mfpc.mia().diameter());
+	const P2D at = P2D{cu, cv};
 	
 	//compute ref observation	 	
- 	MicroImage ref{
-		ck, cl,
-		mfpc.mia().nodeInWorld(ck,cl),
-		mfpc.mia().radius(),
-		mfpc.mia().type(I, ck, cl)
-	};
-	
-	Image refview;
-	cv::getRectSubPix(
-		scene, cv::Size{W,W}, 
-		cv::Point2d{ref.center[0], ref.center[1]}, refview
-	);
+ 	MicroImage ref = mfpc.mia().mi(ck, cl, I);
+ 	mfpc.mia().extract(ref, scene);
  
  	if (mode == ObservationsPairingStrategy::CENTRALIZED)
  	{	
@@ -35,23 +26,12 @@ void make_functors(
 	 	//for each neighbor, create observation
 	 	for (auto [nk, nl] : neighs)
 	 	{
-	 		MicroImage target{
-				nk, nl,
-				mfpc.mia().nodeInWorld(nk,nl),
-				mfpc.mia().radius(),
-				mfpc.mia().type(I, nk, nl)
-			};
-			
-			Image targetview;
-			cv::getRectSubPix(
-				scene, cv::Size{W,W}, 
-				cv::Point2d{target.center[0], target.center[1]}, targetview
-			);
+	 		MicroImage target = mfpc.mia().mi(nk, nl, I);
+ 			mfpc.mia().extract(target, scene);
 			
 			functors.emplace_back(
-				refview, targetview,
 				ref, target,
-				mfpc, P2D{cu, cv}
+				mfpc, at
 			);		
 	 	}
 	}
@@ -59,26 +39,15 @@ void make_functors(
 	{
 		const std::size_t n = neighs.size() + 1;
 		std::vector<MicroImage> vmi; vmi.reserve(n);
-		std::vector<Image> vview; vview.reserve(n);
 		
-		vmi.emplace_back(ref); vview.emplace_back(refview);
+		vmi.emplace_back(ref);
 		
 		for (auto [nk, nl] : neighs)
 	 	{
-	 		MicroImage target{
-				nk, nl,
-				mfpc.mia().nodeInWorld(nk,nl),
-				mfpc.mia().radius(),
-				mfpc.mia().type(I, nk, nl)
-			};
+	 		MicroImage target = mfpc.mia().mi(nk, nl, I);
+ 			mfpc.mia().extract(target, scene);
 			
-			Image targetview;
-			cv::getRectSubPix(
-				scene, cv::Size{W,W},  
-				cv::Point2d{target.center[0], target.center[1]}, targetview
-			);
-			
-			vmi.emplace_back(target); vview.emplace_back(targetview);
+			vmi.emplace_back(std::move(target));
 		}
 		
 		functors.reserve(neighs.size() * (neighs.size() - 1) / 2);
@@ -90,9 +59,8 @@ void make_functors(
 			{
 				//add in solver
 				functors.emplace_back(
-					vview[i], vview[j],
 					vmi[i], vmi[j],
-					mfpc, P2D{cu, cv}
+					mfpc, at
 				);
 			}
 		}

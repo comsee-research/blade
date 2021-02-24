@@ -103,15 +103,13 @@ std::map<Index, XYZs> load(const XYZsConfig& config)
 }
 
 //******************************************************************************
-std::map<Index, RawCoarseDepthMap> load(const DepthMapsConfig& config, const PlenopticCamera& mfpc)
+std::map<Index, RawDepthMap> load(const DepthMapsConfig& config, const PlenopticCamera& mfpc)
 {
-	std::map<Index, RawCoarseDepthMap> maps;
-	
-	const auto [mind, maxd] = initialize_min_max_distance(mfpc);
+	std::map<Index, RawDepthMap> maps;
 	
 	for (auto & dm_cfg : config.maps())
-	{
-		RawCoarseDepthMap dm{mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};
+	{	
+		RawDepthMap dm{mfpc};
 		v::load(dm_cfg.path(), v::make_serializable(&dm));
 		
 		maps.emplace(dm_cfg.frame(), std::move(dm));
@@ -121,18 +119,15 @@ std::map<Index, RawCoarseDepthMap> load(const DepthMapsConfig& config, const Ple
 }
 
 //******************************************************************************
-std::map<Index, RawCoarseDepthMap> load_from_csv(std::string path, const PlenopticCamera& mfpc)
+std::map<Index, RawDepthMap> load_from_csv(std::string path, const PlenopticCamera& mfpc)
 {
-	std::map<Index, RawCoarseDepthMap> maps;
+	std::map<Index, RawDepthMap> maps;
 	
 	using KLD = std::tuple<Index, Index, double>;
 	std::map<Index, std::vector<KLD>> depths;
 	
 	std::ifstream ifs(path);
 	PRINT_DEBUG("Open file = " << path);
-
-    
-    const int nbvalues = mfpc.mia().width() * mfpc.mia().height();
     
     std::string line;
     char comma;
@@ -148,7 +143,6 @@ std::map<Index, RawCoarseDepthMap> load_from_csv(std::string path, const Plenopt
 		
         iss >> frame >> comma >> k >> comma >> l >> comma >> d;
         
-        depths[frame].reserve(nbvalues);
         depths[frame].emplace_back(k,l,d);    
         
         //iss.clear(); 
@@ -159,7 +153,12 @@ std::map<Index, RawCoarseDepthMap> load_from_csv(std::string path, const Plenopt
 	
 	for (auto & [frame, klds] : depths)
 	{
-		RawCoarseDepthMap dm{mfpc, mind, maxd, false}; //metric depth map
+		bool coarse = not (klds.size() > mfpc.mia().width() * mfpc.mia().height());
+		
+		RawDepthMap dm{mfpc, mind, maxd, 
+			RawDepthMap::DepthType::METRIC, 
+			coarse ? RawDepthMap::MapType::COARSE : RawDepthMap::MapType::DENSE
+		};
 		
 		for (const auto& [k, l, d] : klds)
 		{

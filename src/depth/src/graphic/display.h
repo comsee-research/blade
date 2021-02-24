@@ -2,20 +2,14 @@
 
 #include <pleno/graphic/display.h>
 
-#include "geometry/depth/RawCoarseDepthMap.h"
+#include "geometry/depth/RawDepthMap.h"
 
-inline void display(const RawCoarseDepthMap& dm)
+inline void display(const RawDepthMap& dm)
 {
-GUI(
-	constexpr std::size_t BORDER_MARGIN = 0;
-
-	const std::size_t kmax = dm.mia().width() - BORDER_MARGIN; 
-	const std::size_t kmin = 0 + BORDER_MARGIN;
-	const std::size_t lmax = dm.mia().height() - BORDER_MARGIN; 
-	const std::size_t lmin = 0 + BORDER_MARGIN;
-	
+GUI(	
 	std::string ss = (dm.is_virtual_depth()?"":"Metric ");
-	Image idm = dm.as_image();		
+	
+	Image idm = dm.to_image();	
 	cv::cvtColor(idm, idm, CV_BGR2RGB);
 	RENDER_DEBUG_2D(
 		Viewer::context().layer(Viewer::layer()++)
@@ -42,7 +36,7 @@ GUI(
   	const double nbsample = dm.is_virtual_depth()? std::ceil(dm.max_depth() - dm.min_depth()) : 15.;
   	const double stepv = dm.is_virtual_depth()? 1. : (dm.max_depth() - dm.min_depth()) / nbsample;
   	const double steppix = W / nbsample;
-  	for(double v = dm.min_depth(), offsetpix = -5.; v <= dm.max_depth(); v += stepv, offsetpix += steppix)
+  	for (double v = dm.min_depth(), offsetpix = -5.; v <= dm.max_depth(); v += stepv, offsetpix += steppix)
   	{
   		std::ostringstream oss;
   		oss.precision((dm.is_virtual_depth()?2:4));
@@ -58,24 +52,34 @@ GUI(
   	}
 	Viewer::context().layer(Viewer::layer()++).update();  
 	
-	ss = (dm.is_virtual_depth()?"":"Metric ");  	
-	for(std::size_t k = kmin; k < kmax; ++k)
-	{
-		for(std::size_t l = lmin; l < lmax; ++l)
+	if (dm.is_coarse_map())
+	{	
+		constexpr std::size_t BORDER_MARGIN = 0;
+
+		const std::size_t kmax = dm.width() - BORDER_MARGIN; 
+		const std::size_t kmin = 0 + BORDER_MARGIN;
+		const std::size_t lmax = dm.height() - BORDER_MARGIN; 
+		const std::size_t lmin = 0 + BORDER_MARGIN;
+	
+		ss = (dm.is_virtual_depth()?"":"Metric ");  	
+		for(std::size_t k = kmin; k < kmax; ++k)
 		{
-			const auto center = dm.mia().nodeInWorld(k,l);	
-			std::ostringstream oss;
-	  		oss.precision((dm.is_virtual_depth()?3:4));
-	  		oss << dm.depth(k,l)*(dm.is_virtual_depth()?10.:1.);		
-			
-			Viewer::context().layer(Viewer::layer())
-  				.font_size(5)
-				.name(ss+"Depth Values")
-	  			.pen_color(v::white)
-	  			.add_text(
-	  				center[0], center[1],
-	  				oss.str()	  			
-	  			);	
+			for(std::size_t l = lmin; l < lmax; ++l)
+			{
+				const auto center = dm.pcm().mia().nodeInWorld(k,l);	
+				std::ostringstream oss;
+		  		oss.precision((dm.is_virtual_depth()?3:4));
+		  		oss << dm.depth(k,l)*(dm.is_virtual_depth()?10.:1.);		
+				
+				Viewer::context().layer(Viewer::layer())
+	  				.font_size(5)
+					.name(ss+"Depth Values")
+		  			.pen_color(v::white)
+		  			.add_text(
+		  				center[0], center[1],
+		  				oss.str()	  			
+		  			);	
+			}
 		}
 	}
 	

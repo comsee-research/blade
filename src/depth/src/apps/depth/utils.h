@@ -7,9 +7,6 @@ struct Config_t {
 	bool use_gui;
 	bool verbose;
 	std::uint16_t level;
-	
-	bool use_probabilistic;
-	std::uint16_t method;
 		
 	struct {
 		std::string images;
@@ -17,6 +14,7 @@ struct Config_t {
 		std::string params;
 		std::string features;
 		std::string output;
+		std::string strategy;
 		std::string dm;
 	} path;
 };

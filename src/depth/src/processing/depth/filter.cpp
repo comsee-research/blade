@@ -5,15 +5,17 @@
 #include "neighbors.h"
 //******************************************************************************
 //******************************************************************************
-RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap median_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm};
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm};
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for(std::size_t k = kmin; k < kmax; ++k)
@@ -24,7 +26,7 @@ RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size)
 			if (size == AUTOMATIC_FILTER_SIZE) sz = dm.depth(k,l);
 			
 			//get neighbors
-		 	std::vector<IndexPair> neighs = neighbors(dm.mia(), k, l, sz, sz); 
+		 	std::vector<IndexPair> neighs = neighbors(mia, k, l, sz, sz); 
 			
 			std::vector<double> depths; depths.reserve(neighs.size()+1);
 			depths.emplace_back(dm.depth(k,l));
@@ -37,22 +39,26 @@ RawCoarseDepthMap median_filter_depth(const RawCoarseDepthMap& dm, double size)
 	
 	return filtereddm;	
 }
-void inplace_median_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_median_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	const RawCoarseDepthMap temp = median_filter_depth(dm, size);
-	dm.copy_map(temp);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const RawDepthMap temp = median_filter_depth(dm, mia, size);
+	temp.copy_to(dm);
 } 
 
 //******************************************************************************
-RawCoarseDepthMap mean_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap mean_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm};
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm};
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for(std::size_t k = kmin; k < kmax; ++k)
@@ -63,7 +69,7 @@ RawCoarseDepthMap mean_filter_depth(const RawCoarseDepthMap& dm, double size)
 			if (size == AUTOMATIC_FILTER_SIZE) sz = dm.depth(k,l);
 			
 			//get neighbors
-		 	std::vector<IndexPair> neighs = neighbors(dm.mia(), k, l, sz, sz); 
+		 	std::vector<IndexPair> neighs = neighbors(mia, k, l, sz, sz); 
 			
 			std::vector<double> depths; depths.reserve(neighs.size()+1);
 			depths.emplace_back(dm.depth(k,l));
@@ -76,28 +82,32 @@ RawCoarseDepthMap mean_filter_depth(const RawCoarseDepthMap& dm, double size)
 	
 	return filtereddm;	
 }
-void inplace_mean_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_mean_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	const RawCoarseDepthMap temp = mean_filter_depth(dm, size);
-	dm.copy_map(temp);
+	const RawDepthMap temp = mean_filter_depth(dm, mia, size);
+	temp.copy_to(dm);
 } 
 
 //******************************************************************************
-RawCoarseDepthMap minmax_filter_depth(const RawCoarseDepthMap& dm, double min, double max)
+RawDepthMap minmax_filter_depth(const RawDepthMap& dm, double min, double max)
 {
-	RawCoarseDepthMap temp{dm};
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap temp{dm};
 	inplace_minmax_filter_depth(temp, min, max);
 	
 	return temp;
 }
 
-void inplace_minmax_filter_depth(RawCoarseDepthMap& dm, double min, double max)
+void inplace_minmax_filter_depth(RawDepthMap& dm, double min, double max)
 {	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for(std::size_t k = kmin; k < kmax; ++k)
@@ -113,15 +123,17 @@ void inplace_minmax_filter_depth(RawCoarseDepthMap& dm, double min, double max)
 
 //******************************************************************************
 //******************************************************************************
-RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap erosion_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm}; //depths are copied
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm}; //depths are copied
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for(std::size_t k = kmin; k < kmax; ++k)
@@ -133,8 +145,8 @@ RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
 				//get neighbors
 		 		std::vector<IndexPair> neighs;
 		 		
-		 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(dm.mia(), k, l);
-		 		else neighs = neighbors(dm.mia(), k, l, size, size); 
+		 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(mia, k, l);
+		 		else neighs = neighbors(mia, k, l, size, size); 
 		 		
 		 		for(auto& n: neighs) filtereddm.depth(n.k, n.l) = DepthInfo::NO_DEPTH;
 			}
@@ -143,24 +155,28 @@ RawCoarseDepthMap erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
 	
 	return filtereddm;	
 }
-void inplace_erosion_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_erosion_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	const RawCoarseDepthMap temp = erosion_filter_depth(dm, size);
-	dm.copy_map(temp);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const RawDepthMap temp = erosion_filter_depth(dm, mia, size);
+	temp.copy_to(dm);
 } 
 
 //******************************************************************************
 //******************************************************************************
 /* E(I,Z)= min I(Z) */ 
-RawCoarseDepthMap morph_erosion_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap morph_erosion_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm}; //depths are copied
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm}; //depths are copied
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for (std::size_t k = kmin; k < kmax; ++k)
@@ -170,8 +186,8 @@ RawCoarseDepthMap morph_erosion_filter_depth(const RawCoarseDepthMap& dm, double
 			//get neighbors
 	 		std::vector<IndexPair> neighs;
 	 		
-	 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(dm.mia(), k, l);
-	 		else neighs = neighbors(dm.mia(), k, l, size, size); 
+	 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(mia, k, l);
+	 		else neighs = neighbors(mia, k, l, size, size); 
 	 		
 	 		for (auto& n: neighs)
 	 		{
@@ -185,23 +201,27 @@ RawCoarseDepthMap morph_erosion_filter_depth(const RawCoarseDepthMap& dm, double
 	
 	return filtereddm;	
 }
-void inplace_morph_erosion_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_morph_erosion_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	const RawCoarseDepthMap temp = morph_erosion_filter_depth(dm, size);
-	dm.copy_map(temp);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const RawDepthMap temp = morph_erosion_filter_depth(dm, mia, size);
+	temp.copy_to(dm);
 } 
 
 //******************************************************************************
 /* D(I,Z)= max I(Z) */ 
-RawCoarseDepthMap morph_dilation_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap morph_dilation_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm}; //depths are copied
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm}; //depths are copied
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for (std::size_t k = kmin; k < kmax; ++k)
@@ -211,8 +231,8 @@ RawCoarseDepthMap morph_dilation_filter_depth(const RawCoarseDepthMap& dm, doubl
 			//get neighbors
 	 		std::vector<IndexPair> neighs;
 	 		
-	 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(dm.mia(), k, l);
-	 		else neighs = neighbors(dm.mia(), k, l, size, size); 
+	 		if (size == AUTOMATIC_FILTER_SIZE) neighs = inner_ring(mia, k, l);
+	 		else neighs = neighbors(mia, k, l, size, size); 
 	 		
 	 		for (auto& n: neighs)
 	 		{
@@ -226,76 +246,94 @@ RawCoarseDepthMap morph_dilation_filter_depth(const RawCoarseDepthMap& dm, doubl
 	
 	return filtereddm;	
 }
-void inplace_morph_dilation_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_morph_dilation_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	const RawCoarseDepthMap temp = morph_dilation_filter_depth(dm, size);
-	dm.copy_map(temp);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const RawDepthMap temp = morph_dilation_filter_depth(dm, mia, size);
+	temp.copy_to(dm);
 } 
 
 //******************************************************************************
 /* O(I,Z)= D(E(I,Z),Z) */ 
-RawCoarseDepthMap morph_opening_filter_depth(const RawCoarseDepthMap& dm, double size)
-{
-	RawCoarseDepthMap filtereddm{dm};
-	inplace_morph_opening_filter_depth(filtereddm, size);
+RawDepthMap morph_opening_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
+{	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm};
+	inplace_morph_opening_filter_depth(filtereddm, mia, size);
 	
 	return filtereddm;
 } 
-void inplace_morph_opening_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_morph_opening_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	inplace_erosion_filter_depth(dm, size);
-	inplace_morph_dilation_filter_depth(dm, size);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	inplace_erosion_filter_depth(dm, mia, size);
+	inplace_morph_dilation_filter_depth(dm, mia, size);
 } 
 
 //******************************************************************************
 /* C(I,Z)= E(D(I,Z),Z) */ 
-RawCoarseDepthMap morph_closing_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap morph_closing_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm};
-	inplace_morph_closing_filter_depth(filtereddm, size);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm};
+	inplace_morph_closing_filter_depth(filtereddm, mia, size);
 	
 	return filtereddm;
 } 
-void inplace_morph_closing_filter_depth(RawCoarseDepthMap& dm, double size)
-{
-	inplace_morph_dilation_filter_depth(dm, size);
-	inplace_erosion_filter_depth(dm, size);
+void inplace_morph_closing_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
+{	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	inplace_morph_dilation_filter_depth(dm, mia, size);
+	inplace_erosion_filter_depth(dm, mia, size);
 } 
 
 //******************************************************************************
 /* S(I,Z)= C(O(I,Z),Z) */ 
-RawCoarseDepthMap morph_smoothing_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap morph_smoothing_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm};
-	inplace_morph_smoothing_filter_depth(filtereddm, size);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+
+	RawDepthMap filtereddm{dm};
+	inplace_morph_smoothing_filter_depth(filtereddm, mia, size);
 	
 	return filtereddm;
 } 
-void inplace_morph_smoothing_filter_depth(RawCoarseDepthMap& dm, double size)
-{
-	inplace_morph_opening_filter_depth(dm, size);
-	inplace_morph_closing_filter_depth(dm, size);
+void inplace_morph_smoothing_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
+{	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	inplace_morph_opening_filter_depth(dm, mia, size);
+	inplace_morph_closing_filter_depth(dm, mia, size);
 } 
 
 //******************************************************************************
 /* DYT(I,Z) = 0.5 * (E(I,Z) + D(I,Z)) */
-RawCoarseDepthMap morph_dyt_filter_depth(const RawCoarseDepthMap& dm, double size)
-{
-	RawCoarseDepthMap filtereddm{dm};
-	inplace_morph_dyt_filter_depth(filtereddm, size);
+RawDepthMap morph_dyt_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
+{	
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm};
+	inplace_morph_dyt_filter_depth(filtereddm, mia, size);
 	
 	return filtereddm;
 } 
-void inplace_morph_dyt_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_morph_dyt_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	const RawCoarseDepthMap edm = morph_erosion_filter_depth(dm, size);
-	const RawCoarseDepthMap ddm = morph_dilation_filter_depth(dm, size);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const RawDepthMap edm = morph_erosion_filter_depth(dm, mia, size);
+	const RawDepthMap ddm = morph_dilation_filter_depth(dm, mia, size);
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for (std::size_t k = kmin; k < kmax; ++k)
@@ -309,23 +347,27 @@ void inplace_morph_dyt_filter_depth(RawCoarseDepthMap& dm, double size)
 
 //******************************************************************************
 /* TET(I,Z) = 0.5 * (O(I,Z) + C(I,Z)) */
-RawCoarseDepthMap morph_tet_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap morph_tet_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm};
-	inplace_morph_tet_filter_depth(filtereddm, size);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm};
+	inplace_morph_tet_filter_depth(filtereddm, mia, size);
 	
 	return filtereddm;	
 } 
-void inplace_morph_tet_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_morph_tet_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	const RawCoarseDepthMap odm = morph_opening_filter_depth(dm, size);
-	const RawCoarseDepthMap cdm = morph_closing_filter_depth(dm, size);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	const RawDepthMap odm = morph_opening_filter_depth(dm, mia, size);
+	const RawDepthMap cdm = morph_closing_filter_depth(dm, mia, size);
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for (std::size_t k = kmin; k < kmax; ++k)
@@ -339,26 +381,30 @@ void inplace_morph_tet_filter_depth(RawCoarseDepthMap& dm, double size)
 
 //******************************************************************************
 /* OCCO(I,Z) = 0.5 * (O(C(I,Z),Z) + C(O(I,Z),Z)) */
-RawCoarseDepthMap morph_occo_filter_depth(const RawCoarseDepthMap& dm, double size)
+RawDepthMap morph_occo_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap filtereddm{dm}; //depths are copied
-	inplace_morph_occo_filter_depth(filtereddm, size);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
+	RawDepthMap filtereddm{dm}; //depths are copied
+	inplace_morph_occo_filter_depth(filtereddm, mia, size);
 	
 	return filtereddm;	
 } 
-void inplace_morph_occo_filter_depth(RawCoarseDepthMap& dm, double size)
+void inplace_morph_occo_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
-	RawCoarseDepthMap ocdm = morph_closing_filter_depth(dm, size);
-	inplace_morph_opening_filter_depth(ocdm, size);
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
 	
-	RawCoarseDepthMap codm = morph_opening_filter_depth(dm, size);
-	inplace_morph_closing_filter_depth(codm, size);
+	RawDepthMap ocdm = morph_closing_filter_depth(dm, mia, size);
+	inplace_morph_opening_filter_depth(ocdm, mia, size);
+	
+	RawDepthMap codm = morph_opening_filter_depth(dm, mia, size);
+	inplace_morph_closing_filter_depth(codm, mia, size);
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.mia().width()-margin; 
+	const std::size_t kmax = dm.width()-margin; 
 	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.mia().height()-margin; 
+	const std::size_t lmax = dm.height()-margin; 
 	const std::size_t lmin = 0+margin;
 	
 	for (std::size_t k = kmin; k < kmax; ++k)

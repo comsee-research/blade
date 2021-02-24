@@ -7,7 +7,7 @@
 
 #include <pleno/graphic/display.h>
 
-#include "geometry/depth/RawCoarseDepthMap.h"
+#include "geometry/depth/RawDepthMap.h"
 #include "../../graphic/display.h"
 
 #include "strategy.h"
@@ -15,14 +15,13 @@
 #include "initialization.h"
 #include "compute.h"
 
-#define	DISPLAY_FRAME					0
-#define ENABLE_MULTI_THREAD 			1
+#define	DISPLAY_FRAME					1
 
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
 void estimate_depth(
-	RawCoarseDepthMap& rcdm,
+	RawDepthMap& depthmap,
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const DepthEstimationStrategy& strategies
@@ -37,13 +36,9 @@ void estimate_depth(
   	);
 #endif	
 //------------------------------------------------------------------------------
-	RawCoarseDepthMap dm{rcdm};
+	RawDepthMap dm{depthmap};
 	
-#if ENABLE_MULTI_THREAD
-	const unsigned int nthreads = std::thread::hardware_concurrency()-1;	
-#else
-	const unsigned int nthreads = 1;
-#endif
+	const unsigned int nthreads = strategies.multithread ? std::thread::hardware_concurrency()-1 : 1;
 //------------------------------------------------------------------------------
 	auto t_start = std::chrono::high_resolution_clock::now();	
 	// Run depth estimation
@@ -58,7 +53,7 @@ void estimate_depth(
 			std::thread(
 				compute_depthmap, 
 				std::ref(dm), std::cref(mfpc), std::cref(img), k, l,
-				strategies
+				std::cref(strategies)
 			)
 		);
 	}		
@@ -71,8 +66,9 @@ void estimate_depth(
 	const double computational_time = std::chrono::duration<double>(t_end-t_start).count();
 	
 	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
-	rcdm.copy_map(dm);
-	display(rcdm);
+
+	dm.copy_to(depthmap);
+	display(depthmap);
 	
 //------------------------------------------------------------------------------	
 #if 0
@@ -80,20 +76,20 @@ void estimate_depth(
 	PRINT_INFO("=== Filtering depth map...");	
 #if 0
 	inplace_minmax_filter_depth(dm, 2., 15.);	
-	RawCoarseDepthMap filtereddm = median_filter_depth(dm, 4.1);
+	RawDepthMap filtereddm = median_filter_depth(dm, 4.1);
 	PRINT_INFO("=== Filtering finished! Displaying depth map...");
 	display(filtereddm);
 #else
-	RawCoarseDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
+	RawDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
 	#if 0
-		const RawCoarseDepthMap edm = morph_erosion_filter_depth(filtereddm);
-		const RawCoarseDepthMap ddm = morph_dilation_filter_depth(filtereddm);
-		const RawCoarseDepthMap odm = morph_opening_filter_depth(filtereddm);
-		const RawCoarseDepthMap cdm = morph_closing_filter_depth(filtereddm);
-		const RawCoarseDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
-		const RawCoarseDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
-		const RawCoarseDepthMap tetdm = morph_tet_filter_depth(filtereddm);
-		const RawCoarseDepthMap occodm = morph_occo_filter_depth(filtereddm);
+		const RawDepthMap edm = morph_erosion_filter_depth(filtereddm);
+		const RawDepthMap ddm = morph_dilation_filter_depth(filtereddm);
+		const RawDepthMap odm = morph_opening_filter_depth(filtereddm);
+		const RawDepthMap cdm = morph_closing_filter_depth(filtereddm);
+		const RawDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
+		const RawDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
+		const RawDepthMap tetdm = morph_tet_filter_depth(filtereddm);
+		const RawDepthMap occodm = morph_occo_filter_depth(filtereddm);
 	#endif
 	PRINT_INFO("=== Filtering finished! Displaying depth map...");
 	display(filtereddm);
@@ -114,7 +110,7 @@ void estimate_depth(
 //------------------------------------------------------------------------------	
 	// Convert to metric depth map
 	PRINT_INFO("=== Converting depth map...");	
-	RawCoarseDepthMap mdm = dm.as_metric();
+	RawDepthMap mdm = dm.to_metric(mfpc);
 	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
 	display(mdm);	
 	
@@ -125,7 +121,7 @@ void estimate_depth(
 //******************************************************************************
 //******************************************************************************
 void estimate_probabilistic_depth(
-	RawCoarseDepthMap& rcdm, RawCoarseDepthMap& confidencedm,
+	RawDepthMap& depthmap,
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const DepthEstimationStrategy& strategies
@@ -140,13 +136,9 @@ void estimate_probabilistic_depth(
   	);
 #endif	
 //------------------------------------------------------------------------------
-	RawCoarseDepthMap dm{rcdm};
+	RawDepthMap dm{depthmap};
 	
-#if ENABLE_MULTI_THREAD
-	const unsigned int nthreads = std::thread::hardware_concurrency()-1;	
-#else
-	const unsigned int nthreads = 1;
-#endif
+	const unsigned int nthreads = strategies.multithread ? std::thread::hardware_concurrency()-1 : 1;
 //------------------------------------------------------------------------------
 	auto t_start = std::chrono::high_resolution_clock::now();	
 	// Run depth estimation
@@ -160,9 +152,9 @@ void estimate_probabilistic_depth(
 		threads.push_back(
 			std::thread(
 				compute_probabilistic_depthmap,
-				std::ref(dm), std::ref(confidencedm),
+				std::ref(dm),
 				std::cref(mfpc), std::cref(img), k, l,
-				strategies
+				std::cref(strategies)
 			)
 		);
 	}		
@@ -176,8 +168,8 @@ void estimate_probabilistic_depth(
 	
 	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
 	
-	rcdm.copy_map(dm);
-	display(rcdm);
+	dm.copy_to(depthmap);
+	display(depthmap);
 		
 //------------------------------------------------------------------------------	
 #if 0
@@ -185,23 +177,23 @@ void estimate_probabilistic_depth(
 	PRINT_INFO("=== Filtering depth map...");
 #if 0
 		inplace_minmax_filter_depth(dm, 2., 15.);	
-		RawCoarseDepthMap filtereddm = median_filter_depth(dm); //, 4.1);
+		RawDepthMap filtereddm = median_filter_depth(dm); //, 4.1);
 		PRINT_INFO("=== Filtering finished! Displaying depth map...");
 		display(filtereddm);
 		
 		PRINT_INFO("=== Displaying confidence map...");
 		display(confidencedm);
 #else
-	RawCoarseDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
+	RawDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
 	#if 0
-		const RawCoarseDepthMap edm = morph_erosion_filter_depth(filtereddm);
-		const RawCoarseDepthMap ddm = morph_dilation_filter_depth(filtereddm);
-		const RawCoarseDepthMap odm = morph_opening_filter_depth(filtereddm);
-		const RawCoarseDepthMap cdm = morph_closing_filter_depth(filtereddm);
-		const RawCoarseDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
-		const RawCoarseDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
-		const RawCoarseDepthMap tetdm = morph_tet_filter_depth(filtereddm);
-		const RawCoarseDepthMap occodm = morph_occo_filter_depth(filtereddm);
+		const RawDepthMap edm = morph_erosion_filter_depth(filtereddm);
+		const RawDepthMap ddm = morph_dilation_filter_depth(filtereddm);
+		const RawDepthMap odm = morph_opening_filter_depth(filtereddm);
+		const RawDepthMap cdm = morph_closing_filter_depth(filtereddm);
+		const RawDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
+		const RawDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
+		const RawDepthMap tetdm = morph_tet_filter_depth(filtereddm);
+		const RawDepthMap occodm = morph_occo_filter_depth(filtereddm);
 	#endif
 	PRINT_INFO("=== Filtering finished! Displaying depth map...");
 	display(filtereddm);
@@ -222,7 +214,7 @@ void estimate_probabilistic_depth(
 //------------------------------------------------------------------------------	
 	// Convert to metric depth map
 	PRINT_INFO("=== Converting depth map...");	
-	RawCoarseDepthMap mdm = dm.as_metric();
+	RawDepthMap mdm = dm.to_metric(mfpc);
 	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
 	display(mdm);	
 	
@@ -233,7 +225,7 @@ void estimate_probabilistic_depth(
 //******************************************************************************
 //******************************************************************************
 void estimate_depth_from_obs(
-	RawCoarseDepthMap& rcdm,
+	RawDepthMap& depthmap,
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const BAPObservations& observations /*  (u,v,rho) */
@@ -248,7 +240,7 @@ void estimate_depth_from_obs(
   	);
 #endif	
 //------------------------------------------------------------------------------
-	RawCoarseDepthMap dm{rcdm};
+	RawDepthMap dm{depthmap};
 	
 //------------------------------------------------------------------------------
 	auto t_start = std::chrono::high_resolution_clock::now();	
@@ -267,11 +259,11 @@ void estimate_depth_from_obs(
 //------------------------------------------------------------------------------	
 	// Convert to metric depth map
 	PRINT_INFO("=== Converting depth map...");	
-	RawCoarseDepthMap mdm = dm.as_metric();
+	RawDepthMap mdm = dm.to_metric(mfpc);
 	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
 	display(mdm);	
 	
 	wait();
 	
-	rcdm.copy_map(dm);
+	dm.copy_to(depthmap);
 }

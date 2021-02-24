@@ -8,9 +8,12 @@
 #include <pleno/geometry/mia.h>
 
 #include "../../types.h"
+
+#include "depth.h"
 #include "strategy.h"
 
-std::pair<double,double> initialize_min_max_distance(const PlenopticCamera& mfpc);
+std::pair<double,double> 
+initialize_min_max_distance(const PlenopticCamera& mfpc);
 
 IndexPair initialize_kl(
 	std::size_t i, std::size_t n, 
@@ -19,13 +22,9 @@ IndexPair initialize_kl(
 );
 
 void initialize_depth(
-	VirtualDepth& depth, double* cost, double* sigma, //in/out
+	DepthHypothesis& hypothesis,
 	//--------------------------------------------------------------------------
 	const std::vector<IndexPair>& neighs, 
 	const PlenopticCamera& mfpc, const Image& scene, 
-	std::size_t ck, std::size_t cl,
-	double minv = 2., double maxv = 20., double nbsample = 10.,
-	ObservationsPairingStrategy pairing = ObservationsPairingStrategy::CENTRALIZED,
-	SearchStrategy search = SearchStrategy::GOLDEN_SECTION,
-	bool metric = false
+	const DepthEstimationStrategy& strategies
 );

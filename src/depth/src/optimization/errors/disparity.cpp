@@ -13,42 +13,44 @@
 //******************************************************************************
 template <bool useBlur>
 DisparityCostError_<useBlur>::DisparityCostError_(
-	const Image& img_i_, const Image& img_j_, 
-	const MicroImage& mi_i_, const MicroImage& mi_j_, 
-	const PlenopticCamera& mfpc_, 
-	P2D at_, BlurMethod method_
-) : img_i{img_i_.clone()}, img_j{img_j_.clone()}, 
-	mi_i{mi_i_}, mi_j{mi_j_}, mfpc{mfpc_},
-	at{at_}, method{method_}
+	const MicroImage& mii_, const MicroImage& mij_, 
+	const PlenopticCamera& mfpc_, P2D at_, BlurMethod method_
+) : mii{mii_}, mij{mij_}, mfpc{mfpc_}, at{at_}, method{method_}
 { }
 
 template <bool useBlur>
 DisparityCostError_<useBlur>::DisparityCostError_(
 	const DisparityCostError_& o
-) : img_i{o.img_i.clone()}, img_j{o.img_j.clone()}, 
-	mi_i{o.mi_i}, mi_j{o.mi_j}, mfpc{o.mfpc},
+) : mii{o.mii}, mij{o.mij}, mfpc{o.mfpc},
 	at{o.at}, method{o.method}
 { } 
 
 template <bool useBlur>
 DisparityCostError_<useBlur>::DisparityCostError_(
 	DisparityCostError_&& o
-) : img_i{std::move(o.img_i)}, img_j{std::move(o.img_j)}, 
-	mi_i{o.mi_i}, mi_j{o.mi_j}, mfpc{o.mfpc},
+) : mii{std::move(o.mii)}, mij{std::move(o.mij)}, mfpc{o.mfpc},
 	at{std::move(o.at)}, method{o.method}
 { }
 
 template <bool useBlur>
-double DisparityCostError_<useBlur>::weight(double v) const 
+P2D DisparityCostError_<useBlur>::disparity(double v) const 
 { 
-	const P2D mli = mfpc.mla().nodeInWorld(mi_i.k, mi_i.l).head(2);
-	const P2D mlj = mfpc.mla().nodeInWorld(mi_j.k, mi_j.l).head(2);
+	const P2D mli = mfpc.mla().nodeInWorld(mii.k, mii.l).head(2);
+	const P2D mlj = mfpc.mla().nodeInWorld(mij.k, mij.l).head(2);
 	
 	const P2D deltaC = (mli - mlj) / mfpc.sensor().scale(); 
 	P2D disparity = deltaC / v; 
 	
-	const double disp 	= disparity.norm();
-	const double w 		= (v * v) / (disp * disp); 
+	return disparity;
+}
+
+template <bool useBlur>
+double DisparityCostError_<useBlur>::weight(double v) const 
+{ 
+	P2D disp = disparity(v); 
+	
+	const double d = disp.norm();
+	const double w = (v * v) / (d * d); 
 	
 	return w; 
 }
@@ -79,13 +81,9 @@ bool DisparityCostError_<useBlur>::operator()(
     
 //0) Check hypotheses:
 	//0.1) Discard observation?
-	const P2D mli = mfpc.mla().nodeInWorld(mi_i.k, mi_i.l).head(2);
-	const P2D mlj = mfpc.mla().nodeInWorld(mi_j.k, mi_j.l).head(2);
+	const P2D disp = disparity(v);
 	
-	const P2D deltaC = (mli - mlj) / mfpc.sensor().scale(); 
-	P2D disparity = deltaC / v; 
-	
-	if (disparity.norm() >= 2. * radius)
+	if (disp.norm() >= 2. * radius)
 	{
 		//PRINT_ERR("Discard observation for hypothesis = " << v << ", disparity = " << disparity.norm());
 		return false;
@@ -99,8 +97,8 @@ bool DisparityCostError_<useBlur>::operator()(
     
 //1) get ref and edi
 	Image fref, ftarget;	
-	img_i.convertTo(fref, CV_64FC1, 1./255.); //(i)-view is ref
-	img_j.convertTo(ftarget, CV_64FC1, 1./255.); //(j)-view has to be warped
+	mii.mi.convertTo(fref, CV_64FC1, 1./255.); //(i)-view is ref
+	mij.mi.convertTo(ftarget, CV_64FC1, 1./255.); //(j)-view has to be warped
 
 //2) compute mask	
 	Image fmask = Image{fref.size(), CV_64FC1, cv::Scalar::all(1.)};
@@ -108,7 +106,7 @@ bool DisparityCostError_<useBlur>::operator()(
 		
 //3) warp image according to depth hypothesis
 	//3.1) compute transformation
-	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disparity[0], 0., 1., disparity[1]); //Affine transformation
+	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disp[0], 0., 1., disp[1]); //Affine transformation
 	
 	//3.2) warp mask and target	
 	const auto interp = cv::INTER_LINEAR; //cv::INTER_CUBIC; //
@@ -122,17 +120,17 @@ bool DisparityCostError_<useBlur>::operator()(
 	if constexpr (useBlur)
 	{
 		//3.3) compute blur	
-		if (mi_i.type != mi_j.type) //not same type
+		if (mii.type != mij.type) //not same type
 		{
 			const double A = mfpc.mlaperture(); //mm
 			const double d = mfpc.d();			//mm
-			const double ai = mfpc.obj2mla(mfpc.focal_plane(mi_i.type));  //mm, negative signed distance to mla
-			const double aj = mfpc.obj2mla(mfpc.focal_plane(mi_j.type));  //mm, negative signed distance to mla
+			const double a_i = mfpc.obj2mla(mfpc.focal_plane(mii.type));  //mm, negative signed distance to mla
+			const double a_j = mfpc.obj2mla(mfpc.focal_plane(mij.type));  //mm, negative signed distance to mla
 
-			const double mij = ((A * A * d) / 2.) * ((1. / ai) - (1. / aj)); //mm²
-			const double cij = ((A * A * d * d) / 4.) * ((1. / (ai * ai)) - (1. / (aj * aj))); //mm²
+			const double m_ij = ((A * A * d) / 2.) * ((1. / a_i) - (1. / a_j)); //mm²
+			const double c_ij = ((A * A * d * d) / 4.) * ((1. / (a_i * a_i)) - (1. / (a_j * a_j))); //mm²
 
-			const double rel_blur = mij * (1. / v) + cij; //mm²	
+			const double rel_blur = m_ij * (1. / v) + c_ij; //mm²	
 
 			const double rho_sqr_r = rel_blur / (mfpc.sensor().scale() * mfpc.sensor().scale()); //pix²
 			const double kappa = mfpc.params().kappa; 
@@ -144,14 +142,14 @@ bool DisparityCostError_<useBlur>::operator()(
 			if (isOrdered) //(i)-view is more defocused the the (j)-view
 			{
 		#if ENABLE_DEBUG_DISPLAY
-				PRINT_DEBUG("Views: (edi = target); ref ("<< mi_i.type+1<<"), target ("<< mi_j.type+1<<")");
+				PRINT_DEBUG("Views: (edi = target); ref ("<< mii.type+1<<"), target ("<< mij.type+1<<")");
 		#endif 
 				fedi = wtarget; //(j)-view has to be equally-defocused
 			}
 			else //(j)-view is more defocused the the (i)-view
 			{
 		#if ENABLE_DEBUG_DISPLAY
-				PRINT_DEBUG("Views: (edi = ref); ref ("<< mi_i.type+1<<"), target ("<< mi_j.type+1<<")");
+				PRINT_DEBUG("Views: (edi = ref); ref ("<< mii.type+1<<"), target ("<< mij.type+1<<")");
 		#endif 
 				fedi = fref; //(i)-view has to be equally-defocused
 			}
@@ -192,18 +190,18 @@ bool DisparityCostError_<useBlur>::operator()(
 	Image finaltarget = wtarget.mul(wmask); 	
 	
 	//3.5) get sub window if at specific pixel
-	const int h = img_i.rows;
-	const int w = img_i.cols;
+	const int h = mii.mi.rows;
+	const int w = mii.mi.cols;
 	
 	cv::Rect window{0,0, w, h};
 	if (compute_at_pixel())
 	{
 		double cu = 0., cv = 0.;
 		
-		if ((at - mi_i.center).norm() < (at-mi_j.center).norm()) {
-			cu = mi_i.center[0]; cv = mi_i.center[1];
+		if ((at - mii.center).norm() < (at-mij.center).norm()) {
+			cu = mii.center[0]; cv = mii.center[1];
 		} else {
-			cu = mi_j.center[0]; cv = mi_j.center[1];
+			cu = mij.center[0]; cv = mij.center[1];
 		}
 		
 		int s = static_cast<int>(std::round(at[0] - cu + double(w / 2.)));
@@ -260,11 +258,10 @@ bool DisparityCostError_<useBlur>::operator()(
 		cv::resizeWindow("wcost", 200u, 200u);
 		cv::imshow("wcost", costimg(window));
 	}
-	
-	
+
 	if constexpr (useBlur)
 	{
-		if (mi_i.type != mi_j.type) //if not the same type
+		if (mii.type != mij.type) //if not the same type
 		{
 			cv::namedWindow("lpedi", cv::WINDOW_NORMAL);
 			cv::resizeWindow("lpedi", 200u, 200u);

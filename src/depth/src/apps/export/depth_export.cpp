@@ -17,7 +17,7 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/RawCoarseDepthMap.h"
+#include "geometry/depth/RawDepthMap.h"
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
@@ -120,13 +120,12 @@ int main(int argc, char* argv[])
 		}	
 	);	
 	
-	//------------------------------------------------------------------------------	
-	const auto [mind, maxd] = initialize_min_max_distance(mfpc);
-	
+	//--------------------------------------------------------------------------
+	const auto [mind, maxd] = initialize_min_max_distance(mfpc);	
 	if (config.path.dm != "")
 	{
 		PRINT_WARN("\t3.2) Export depth histogram");
-		RawCoarseDepthMap dm{mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};
+		RawDepthMap dm{mfpc};
 		v::load(config.path.dm, v::make_serializable(&dm));
 		PRINT_INFO("=== Exporting histogram");
 		export_depth_histogram(dm);	

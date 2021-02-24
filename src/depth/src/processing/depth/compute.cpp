@@ -8,9 +8,9 @@
 
 #include <pleno/processing/imgproc/trim.h>
 
+#include "geometry/depth/RawDepthMap.h"
 
-#include "geometry/depth/RawCoarseDepthMap.h"
-
+#include "depth.h"
 #include "strategy.h"
 #include "neighbors.h"
 #include "initialization.h"
@@ -26,6 +26,7 @@ static constexpr bool use_optimization 		= false;
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
+//FIXME: move to mia ?
 bool is_contrasted_enough(
 	const MIA& mia, const Image& scene,
 	std::size_t ck, std::size_t cl
@@ -34,7 +35,7 @@ bool is_contrasted_enough(
 	constexpr double threshold_contrast = 5.;
 	
 	const int W 		= int(std::ceil(mia.diameter()));
-	const auto center 	= mia.nodeInWorld(ck,cl); 
+	const auto center 	= mia.nodeInWorld(ck, cl); 
 	const double radius = mia.radius() - mia.border();
 	
 	Image r;
@@ -49,7 +50,11 @@ bool is_contrasted_enough(
 	cv::meanStdDev(r, mean, std, m); 
 	
 	const double contrast = std[0];
-	
+#if 0
+	DEBUG_VAR(ck);
+	DEBUG_VAR(cl);
+	DEBUG_VAR(contrast);
+#endif
 	return (contrast >= threshold_contrast);
 }
 
@@ -57,14 +62,18 @@ bool is_contrasted_enough(
 //******************************************************************************
 //******************************************************************************
 void compute_depthmap(
-	RawCoarseDepthMap& dm, 
+	RawDepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
-	DepthEstimationStrategy strategies
+	const DepthEstimationStrategy& strategies
 )
 {	
 	constexpr double nbsample = 15.;
 	constexpr double N = 1.96; //FIXME: increase N ?
+	
+	int nbrejected = 0;
+	int nbinvalided = 0;
+	int nbcomputed = 0;
 	
 	std::queue<IndexPair> microimages;
 	microimages.emplace(kinit, linit);
@@ -80,125 +89,149 @@ void compute_depthmap(
 		//Compute first hypothesis using inner ring
 		if (dm.state(ck,cl) == DepthInfo::State::UNINITIALIZED)
 		{
-			double hypothesis = 0., cost = 0., sigma = -1.;
-			VirtualDepth vd{hypothesis};		
-							 	
 			//get neighbors
 			std::map<double, std::vector<IndexPair>> ordered_neighs = neighbors_by_rings(mfpc.mia(), ck, cl, 3.5, 2.);
+			
+			DepthHypothesis hypothesis;
+				hypothesis.k = ck;
+				hypothesis.l = cl;
+				hypothesis.min = dm.min_depth();
+				hypothesis.max = dm.max_depth();
+				hypothesis.precision =  nbsample;
+							 			
+			//add to queue
+			for (auto &n: ordered_neighs[1.]) 
+	 		{
+	 			if (dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED)  
+	 			{
+	 				microimages.push(n);
+	 			}
+	 		}
 			
 			//filter texture		 	
 		 	if (not (strategies.filter) or is_contrasted_enough(mfpc.mia(), scene, ck, cl))
 		 	{
-			 	initialize_depth(
-			 		vd, &cost, &sigma,
-			 		ordered_neighs[1.7], mfpc, scene, //micro-images of the same type
-			 		ck, cl,
-			 		dm.min_depth(), dm.max_depth(), nbsample,
-			 		strategies.pairing, strategies.search, false // strategies.metric
-			 	);
+			 	++nbrejected;
 			 	
-			 	hypothesis = vd.v;
+			 	DepthEstimationStrategy strat = strategies;
+			 	strat.metric = false;
+			 	
+			 	initialize_depth(
+			 		hypothesis,
+			 		ordered_neighs[1.7], mfpc, scene, //micro-images of the same type
+			 		strat
+			 	);
 		 	}
 		 	
-		 	if (cost == 0. or not dm.is_valid_depth(hypothesis))
+		 	if (not (hypothesis.is_valid() and dm.is_valid_depth(hypothesis.depth())))
 		 	{
+		 		++nbinvalided;
+		 		
 		 		dm.depth(ck, cl) = DepthInfo::NO_DEPTH;
 		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
-		 		
-		 		for (auto &n: ordered_neighs[1.]) 
-		 		{
-		 			if (dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED)  
-		 			{
-		 				microimages.push(n);
-		 			}
-		 		}
+
 		 		continue;		 	
 		 	}
 		 	
-		 	dm.depth(ck, cl) = hypothesis;
-		 	dm.state(ck, cl) = DepthInfo::State::INITIALIZED;				
+		 	dm.depth(ck, cl) 		= hypothesis.depth();
+		 	dm.confidence(ck, cl) 	= hypothesis.confidence();
+		 	dm.state(ck, cl) 		= DepthInfo::State::INITIALIZED;				
 		}
 		
 		//Compute depth hypothesis
 		if(dm.state(ck,cl) == DepthInfo::State::INITIALIZED)
 		{
-			double depth = dm.depth(ck, cl), cost = 0., sigma = -1.;
-			VirtualDepth vd{depth};		
-			
 			//compute neighbors
-			std::vector<IndexPair> neighs = neighbors(dm.mia(), ck, cl, std::ceil(std::fabs(depth)), 2., 12.);
-
+			std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, std::ceil(std::fabs(dm.depth(ck, cl))), 2., 12.);
+			
+			DepthHypothesis hypothesis;
+				hypothesis.depth() = dm.depth(ck, cl);
+				hypothesis.k = ck;
+				hypothesis.l = cl;		
+			
 			//compute hypothesis
 			if (strategies.search == SearchStrategy::NONLIN_OPTIM)
 			{	
-				optimize_depth(vd, &cost, neighs, mfpc, scene, ck, cl, strategies.pairing);
+				optimize_depth(hypothesis, neighs, mfpc, scene, strategies);
 			}
 			else if (strategies.search == SearchStrategy::BRUTE_FORCE)
 			{
 				const double stepv = (dm.max_depth() - dm.min_depth()) / nbsample;
-				const double dmin = depth - stepv;
-				const double dmax = depth + stepv;
 				
-				bruteforce_depth(vd, &cost, &sigma, 
-					neighs, mfpc, scene, 
-					ck, cl, dmin, dmax, nbsample, 
-					strategies.pairing, strategies.metric
+				hypothesis.min = hypothesis.depth() - stepv;;
+				hypothesis.max = hypothesis.depth() + stepv;
+				hypothesis.precision = nbsample;
+				
+				bruteforce_depth(
+					hypothesis, 
+					neighs, mfpc, scene,
+					strategies
 				);
 		 	}
 		 	else if (strategies.search == SearchStrategy::GOLDEN_SECTION)
-			{
-				const double dmin = std::max(depth - N, dm.min_depth());;
-				const double dmax = depth + N;
+			{				
+				hypothesis.min = std::max(hypothesis.depth() - N, dm.min_depth());
+				hypothesis.max = hypothesis.depth() + N;
+				hypothesis.precision = std::sqrt(strategies.precision);
 			
-				gss_depth(vd, &cost, &sigma, 
-					neighs, mfpc, scene, 
-					ck, cl, dmin, dmax, std::sqrt(strategies.precision), 
-					strategies.pairing, strategies.metric
+				gss_depth(
+					hypothesis,
+					neighs, mfpc, scene,
+					strategies
 				);
 			}
-		 	
-			if (cost != 0. and dm.is_valid_depth(vd.v)) 
-			{
-				depth = vd.v;
-				dm.depth(ck, cl) = depth;
-			}
-		 	dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
 			
-			for(auto &n: neighs) 
+			bool isValidDepth = dm.is_valid_depth(hypothesis.depth());
+		 	
+			if (hypothesis.is_valid() and isValidDepth) 
+			{
+				dm.depth(ck, cl) = hypothesis.depth();
+		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;
+				++nbcomputed;
+			}
+			else 
+			{
+				dm.depth(ck, cl) = DepthInfo::NO_DEPTH;
+		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;
+				++nbrejected;
+				
+				continue;
+			}	
+			
+			//depth is valid
+			for (auto &n: neighs) 
 			{
 				//if already computed, do nothing
-				if(dm.state(n.k, n.l) == DepthInfo::State::COMPUTED) 
+				if (dm.state(n.k, n.l) == DepthInfo::State::COMPUTED) 
 				{
 					/* Add strategy to check if estimation is coherent */
 					continue;
 				}
 				
 				//if already initialized, average hypotheses
-				if(dm.state(n.k, n.l) == DepthInfo::State::INITIALIZED)
+				if (dm.state(n.k, n.l) == DepthInfo::State::INITIALIZED)
 				{					
 					/* Add strategy to update hypothesis */					
 					continue;
 				}
 				
 				//else uninitialized then initalize hypothesis if valid
-				if(strategies.belief == BeliefPropagationStrategy::ALL_NEIGHS and dm.is_valid_depth(depth))
+				if (strategies.belief == BeliefPropagationStrategy::ALL_NEIGHS)
 				{		
-					dm.depth(n.k, n.l) = depth;
+					dm.depth(n.k, n.l) = hypothesis.depth();
 			 		dm.state(n.k, n.l) = DepthInfo::State::INITIALIZED;			
 				}
-				//add to queue
-				microimages.push(n);
 			}
 			
-			if(strategies.belief == BeliefPropagationStrategy::FIRST_RING and dm.is_valid_depth(depth))
+			if(strategies.belief == BeliefPropagationStrategy::FIRST_RING)
 			{		
-				std::vector<IndexPair> innerneighs = inner_ring(dm.mia(), ck, cl);
+				std::vector<IndexPair> innerneighs = inner_ring(mfpc.mia(), ck, cl);
 				
 				for(auto& n: innerneighs)
 				{
 					if(dm.state(n.k, n.l) == DepthInfo::State::UNINITIALIZED)
 					{
-						dm.depth(n.k, n.l) = depth;
+						dm.depth(n.k, n.l) = hypothesis.depth();
 			 			dm.state(n.k, n.l) = DepthInfo::State::INITIALIZED;	
 			 		}
 		 		}		
@@ -206,6 +239,9 @@ void compute_depthmap(
 		}		
 	}
 	PRINT_DEBUG("Local depth estimation finished.");
+	DEBUG_VAR(nbrejected);
+	DEBUG_VAR(nbinvalided);
+	DEBUG_VAR(nbcomputed);
 }
 
 
@@ -213,10 +249,10 @@ void compute_depthmap(
 //******************************************************************************
 //******************************************************************************
 void compute_probabilistic_depthmap(
-	RawCoarseDepthMap& dm,	RawCoarseDepthMap& confidencedm,
+	RawDepthMap& dm,
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
-	DepthEstimationStrategy strategies
+	const DepthEstimationStrategy& strategies
 )
 {	
 #if DEBUG_PROBA
@@ -244,8 +280,12 @@ void compute_probabilistic_depthmap(
 		//Compute hypothesis
 		if (dm.state(ck, cl) == DepthInfo::State::UNINITIALIZED)
 		{
-			double hypothesis = 0., cost = 0., sigma = -1.;
-			VirtualDepth vd{hypothesis};		
+			DepthHypothesis hypothesis;
+				hypothesis.k = ck;
+				hypothesis.l = cl;
+				hypothesis.min = dm.min_depth();
+				hypothesis.max = dm.max_depth();
+				hypothesis.precision =  nbsample;	
 							 	
 			//get neighbors		 	
 		 	std::map<double, std::vector<IndexPair>> ordered_neighs = neighbors_by_rings(mfpc.mia(), ck, cl, 3.5, 2., 12.);
@@ -262,30 +302,25 @@ void compute_probabilistic_depthmap(
 		 	if (not (strategies.filter) or is_contrasted_enough(mfpc.mia(), scene, ck, cl))
 		 	{
 			 	initialize_depth(
-			 		vd, &cost, &sigma,
+			 		hypothesis,
 			 		ordered_neighs[1.7], mfpc, scene, 
-			 		ck, cl,
-			 		dm.min_depth(), dm.max_depth(), nbsample,
-			 		strategies.pairing, strategies.search, false //strategies.metric
+			 		strategies
 			 	);
-			 	
-			 	hypothesis = vd.v;
 		 	}
 		 	
-		 	if (cost == 0. or not dm.is_valid_depth(hypothesis))
+		 	if (not (hypothesis.is_valid()) or not (dm.is_valid_depth(hypothesis.depth())))
 		 	{
-		 		dm.depth(ck, cl) = DepthInfo::NO_DEPTH;
-		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
-		 		confidencedm.depth(ck, cl) = DepthInfo::NO_DEPTH;
+		 		dm.depth(ck, cl) 		= DepthInfo::NO_DEPTH;
+		 		dm.state(ck, cl) 		= DepthInfo::State::COMPUTED;	
+		 		dm.confidence(ck, cl) 	= DepthInfo::NO_CONFIDENCE;
 		 		
 		 		continue;		 	
 		 	}
 		 	
-		 	dm.depth(ck, cl) = hypothesis;
+		 	dm.depth(ck, cl) = hypothesis.depth();
 		 	dm.state(ck, cl) = DepthInfo::State::INITIALIZED;
 		 	
-		 	double muz = 1. / hypothesis;
-		 	double sigmaz = 0.;
+		 			 	
 		 	//update inverse depth observation
 	 		if constexpr (use_true_sigma)
 	 		{	
@@ -293,32 +328,33 @@ void compute_probabilistic_depthmap(
 				const double dmax = dm.max_depth(); 
 		 		double stepv = 0.;
 		 		
-		 		if (strategies.search == SearchStrategy::BRUTE_FORCE ) stepv = (dmax - dmin) / nbsample;
-		 		else if (strategies.search == SearchStrategy::GOLDEN_SECTION ) stepv = sigma;
+		 		if (strategies.search == SearchStrategy::BRUTE_FORCE) stepv = (dmax - dmin) / nbsample;
+		 		else if (strategies.search == SearchStrategy::GOLDEN_SECTION) stepv = hypothesis.sigma;
 		 		
 		 		const double sigmav = (stepv * stepv);
+		 		double muz = hypothesis.invdepth();
 	 		
-	 			sigmaz = muz * muz * muz * muz * sigmav;
+	 			hypothesis.sigma = muz * muz * muz * muz * sigmav;
 	 		}
 	 		else 
 	 		{
 	 			const double B = std::sin(60.) * 2. * mfpc.mia().diameter() / mfpc.sensor().scale();
-	 			sigmaz = 1. / (B * B);
+	 			hypothesis.sigma = 1. / (B * B);
 	 		}
 	 		
-	 		confidencedm.depth(ck, cl) = sigmaz ;
+	 		dm.confidence(ck, cl) = hypothesis.sigma; //at init contains sigma
 	 		 
 	 	#if DEBUG_PROBA	
 	 		const double dmin = dm.min_depth();
 			const double dmax = dm.max_depth(); 
-			const double sigmav = hypothesis * hypothesis * std::sqrt(sigmaz);
+			const double sigmav = hypothesis.depth() * hypothesis.depth() * std::sqrt(hypothesis.sigma);
 			
 		 	DEBUG_VAR(dmin);
 		 	DEBUG_VAR(dmax);
 	 		PRINT_DEBUG("**********************");
-	 		DEBUG_VAR(hypothesis);
-	 		DEBUG_VAR(muz);
-	 		DEBUG_VAR(sigmaz);
+	 		DEBUG_VAR(hypothesis.depth());
+	 		DEBUG_VAR(hypothesis.invdepth());
+	 		DEBUG_VAR(hypothesis.sigma);
 	 		DEBUG_VAR(sigmav);
 	 		
 	 		PRINT_INFO("Init at baseline b = " << 1.7 << std::endl);
@@ -328,10 +364,13 @@ void compute_probabilistic_depthmap(
 		//Compute depth hypothesis
 		if(dm.state(ck,cl) == DepthInfo::State::INITIALIZED)
 		{
-			double muz = 1. / dm.depth(ck, cl);
-			double sigmaz = confidencedm.depth(ck, cl);
-			
-			const double maxdepth = (1. / muz) + PHI2; //dm.max_depth(); // 
+			DepthHypothesis hypothesis;
+				hypothesis.depth() 	= dm.depth(ck, cl);
+				hypothesis.sigma	= dm.confidence(ck, cl);
+				hypothesis.k 		= ck;
+				hypothesis.l 		= cl;
+							
+			const double maxdepth = hypothesis.depth() + PHI2;
 			
 			std::map<double, std::vector<IndexPair>> ordered_neighs = 
 				neighbors_by_rings(mfpc.mia(), ck, cl, maxdepth, 2., 12.);
@@ -339,42 +378,38 @@ void compute_probabilistic_depthmap(
 			for(auto& [baseline, neighs]: ordered_neighs)
 			{
 		 		const auto& [nk, nl] = neighs[0];
+		 		
 		 		const double B = (mfpc.mla().nodeInWorld(ck, cl) - mfpc.mla().nodeInWorld(nk, nl)).head(2).norm() / mfpc.sensor().scale();
 		 		const double M =  neighs.size();
+			 				 	
+			 	DepthHypothesis nhypothesis;
+					nhypothesis.depth() = hypothesis.depth();
+					nhypothesis.sigma	= 1. / (B * B);
+					nhypothesis.k 		= ck;
+					nhypothesis.l 		= cl;
 			 	
-			 	//optimize depth
-			 	double depth = 1. / muz, cost = -1., stddev = -1.;
-			 	VirtualDepth vd{depth};	 
-			 	
-			 	//inverse depth observation
-			 	double z = 0.;
-			 	double varz = 1. / (B * B);		
-			 	
+			 				 	
 			 	if (strategies.search == SearchStrategy::NONLIN_OPTIM)
 				{	
-					optimize_depth(vd, &cost, neighs, mfpc, scene, ck, cl, strategies.pairing);
-					
-					depth = vd.v;
-					//compute inverse depth observation
-					z = 1. / depth;
+					optimize_depth(nhypothesis, neighs, mfpc, scene, strategies);
 				}
 				else if (strategies.search == SearchStrategy::BRUTE_FORCE)
-				{
-					const double dmin = 1. / (muz + N * std::sqrt(sigmaz));
-					const double dmax = 1. / (muz - N * std::sqrt(sigmaz)); 
-					const double minv = std::max(std::min(dmin, dmax), dm.min_depth());
-					const double maxv = std::max(dmax, dmin);
+				{					
+					const double dmin = 1. / (hypothesis.invdepth() + N * std::sqrt(hypothesis.sigma));
+					const double dmax = 1. / (hypothesis.invdepth() - N * std::sqrt(hypothesis.sigma)); 
+										
+					nhypothesis.min = std::max(std::min(dmin, dmax), dm.min_depth());
+					nhypothesis.max = std::max(dmax, dmin);
+					nhypothesis.precision = nbsample;
 					
-					bruteforce_depth(vd, &cost, &stddev, 
+					//compute depth hypothesis
+					bruteforce_depth(
+						nhypothesis,
 						neighs, mfpc, scene, 
-						ck, cl, minv, maxv, nbsample, 
-						strategies.pairing
+						strategies
 					);
-					depth = vd.v;	
-					
-					//compute inverse depth observation
-					z = 1. / depth;
-					
+															
+					//compute invz sigma 
 					if constexpr (use_sigmac)
 					{
 						//compute derivative
@@ -382,109 +417,121 @@ void compute_probabilistic_depthmap(
 						double fcost = 0.;
 						VirtualDepth vdph{0.};
 						
-						bruteforce_depth(vdph, &fcost, nullptr,
+						DepthHypothesis temp;
+							temp.k = ck;
+							temp.l = cl;
+							temp.min = nhypothesis.depth() + h;
+							temp.max = nhypothesis.depth() + 2. * h;
+							temp.precision = 1.;
+						
+						bruteforce_depth(
+							temp,
 							neighs, mfpc, scene,
-							ck, cl, vd.v+h, vd.v+2.*h, 1.,
-							strategies.pairing
+							strategies
 						);
 						
-						if((fcost - cost) < 1e-7) //no derivative
+						if((temp.cost - nhypothesis.cost) < 1e-7) //no derivative
 						{
-							varz = 2. * sigmaz;	
+							nhypothesis.sigma = 2. * hypothesis.sigma;	
 						}
 						else 
 						{
-							const double dvdc = h / (fcost - cost);	
-	 						const double sigmac = (cost * cost) / (2. * M);
-		 					varz = z * z * z * z * dvdc * dvdc * sigmac;	
+							const double dvdc = h / (temp.cost - nhypothesis.cost);	
+	 						const double sigmac = (nhypothesis.cost * nhypothesis.cost) / (2. * M);
+							const double z = nhypothesis.invdepth();
+							
+		 					nhypothesis.sigma = z * z * z * z * dvdc * dvdc * sigmac;	
 		 				}		
 					}
 					else if constexpr (use_sigmav)
 					{
-						const double stepv = (maxv - minv) / nbsample; 
+						const double stepv = (nhypothesis.max - nhypothesis.min) / nbsample; 
 		 				const double sigmav = (stepv * stepv);
-		 				varz = z * z * z * z * sigmav;
+						const double z = nhypothesis.invdepth();
+						
+		 				nhypothesis.sigma = z * z * z * z * sigmav;
 					}
 						
 				#if DEBUG_PROBA
-					const double stepv = (maxv - minv) / nbsample; 
-				 	DEBUG_VAR(dmin);
-				 	DEBUG_VAR(dmax);
+					const double stepv = (nhypothesis.max - nhypothesis.min) / nbsample; 
+				 	DEBUG_VAR(nhypothesis.min);
+				 	DEBUG_VAR(nhypothesis.max);
 				 	DEBUG_VAR(stepv);
 			 		PRINT_DEBUG("**********************");
-			 		DEBUG_VAR(depth);
-				 	DEBUG_VAR(cost);
-				 	DEBUG_VAR(stddev);
+			 		DEBUG_VAR(nhypothesis.depth());
+				 	DEBUG_VAR(nhypothesis.cost);
+				 	DEBUG_VAR(nhypothesis.sigma);
 			 		PRINT_DEBUG("**********************");
 			 	#endif 	
 				}
 				else if (strategies.search == SearchStrategy::GOLDEN_SECTION)
 				{
-					const double dmin = (1. / muz) - N;
-					const double dmax = (1. / muz) + N;
-					const double minv = std::max(std::min(dmin, dmax), dm.min_depth());
-					const double maxv = std::max(dmax, dmin);
+					const double dmin = hypothesis.depth() - N;
+					const double dmax = hypothesis.depth() + N;
+										
+					nhypothesis.min = std::max(std::min(dmin, dmax), dm.min_depth());
+					nhypothesis.max = std::max(dmax, dmin);
+					nhypothesis.precision = std::sqrt(strategies.precision);
 					
-					gss_depth(vd, &cost, &stddev, 
+					gss_depth(
+						nhypothesis,
 						neighs, mfpc, scene, 
-						ck, cl, minv, maxv, std::sqrt(strategies.precision), 
-						strategies.pairing
+						strategies
 					);
-					
-					depth = vd.v;	
-					//compute inverse depth observation
-					z = 1. / depth;
+												
 					if constexpr (use_true_sigma)
 					{
-						const double sigmav = (stddev * stddev);
-		 				varz = z * z * z * z * sigmav;
+						const double sigmav = (nhypothesis.sigma * nhypothesis.sigma);
+						const double z = nhypothesis.invdepth();
+		 				nhypothesis.sigma = z * z * z * z * sigmav;
 					}
 					
 				#if DEBUG_PROBA
 				 	DEBUG_VAR(dmin);
 				 	DEBUG_VAR(dmax);
-				 	DEBUG_VAR(maxv - minv);
 			 		PRINT_DEBUG("**********************");
-			 		DEBUG_VAR(depth);
-				 	DEBUG_VAR(cost);
-				 	DEBUG_VAR(stddev);
+			 		DEBUG_VAR(nhypothesis.depth());
+				 	DEBUG_VAR(nhypothesis.cost);
+				 	DEBUG_VAR(nhypothesis.sigma);
 			 		PRINT_DEBUG("**********************");
 			 	#endif 				
-				}			
+				}
+							
 			 	//if no observation has been taken into account or estimation is not valid, continue
-				if (not dm.is_valid_depth(depth) or cost == 0.) 
+				if (not (nhypothesis.is_valid()) or not (dm.is_valid_depth(nhypothesis.depth()))) 
 				{
 					continue;
 				}
-				//update hypothesis
-				depth = muz;
-				stddev = sigmaz;
 								
-				muz = (sigmaz * z + varz * muz) / (sigmaz + varz);
-				sigmaz = (sigmaz * varz) / (sigmaz + varz);	
+				double z = hypothesis.invdepth();
+				double s = hypothesis.sigma;
+				
+				//update hypothesis
+				hypothesis += nhypothesis;
 					
 			#if DEBUG_PROBA
 				PRINT_INFO(
-					"- update from Z ~ N(" << depth << ", "<< stddev << ") to Z' ~ N(" 
-					<< muz << ", " << sigmaz << ")" << std::endl
-					<< "i.e., v = " << 1. / depth << " (" << mfpc.v2obj(1. / depth) << ") to v' = "  
-					<< 1. / muz << " (" << mfpc.v2obj(1. / muz) << ") " 
+					"- update from Z ~ N(" << z << ", "<< s << ") to Z' ~ N(" 
+					<< hypothesis.invdepth() << ", " << hypothesis.sigma << ")" << std::endl
+					<< "i.e., v = " << 1. / z << " (" << mfpc.v2obj(1. / z) << ") to v' = "  
+					<< hypothesis.depth << " (" << mfpc.v2obj(hypothesis.depth) << ") " 
 					<< "at baseline b = " << baseline << std::endl
 				);
 		 	#endif			 				 			
 			}
 			
-			const double v = (muz == DepthInfo::NO_DEPTH ? DepthInfo::NO_DEPTH : 1. / muz);
-			const double confidence = (sigmaz == DepthInfo::NO_DEPTH ? DepthInfo::NO_DEPTH : (v * v * std::sqrt(sigmaz)));
+			//const double v = (hypothesis.invdepth() == DepthInfo::NO_DEPTH ? DepthInfo::NO_DEPTH : hypothesis.depth());
+			//const double confidence = (hypothesis.sigma == DepthInfo::NO_DEPTH ? DepthInfo::NO_DEPTH : (v * v * std::sqrt(hypothesis.sigma)));
 			
 			//set depth
 	 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
-	 		dm.depth(ck, cl) = v;	
+	 		dm.depth(ck, cl) = hypothesis.depth();	
 	 		
-	 		confidencedm.depth(ck, cl) = 1e3 * confidence;		
+	 		dm.confidence(ck, cl) = hypothesis.confidence(); //1e3 * confidence;		
 	 	
 		#if DEBUG_PROBA	
-	 		PRINT_INFO("Depth estimated at v(" << ck << ", " << cl << ") = " << v << " (z = " << mfpc.v2obj(v)  <<") with confidence = " << confidence << std::endl);
+	 		PRINT_INFO("Depth estimated at v(" << ck << ", " << cl << ") = " << hypothesis.depth() << " (z = " << mfpc.v2obj(hypothesis.depth())  <<") with confidence = " << confidence << std::endl);
+	 		
 	 		if (ck == kinit and cl == linit) wait();
 	 	#endif
 		}
@@ -497,7 +544,7 @@ void compute_probabilistic_depthmap(
 //******************************************************************************
 //******************************************************************************
 void compute_depthmap_from_obs(
-	RawCoarseDepthMap& dm, 
+	RawDepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	const BAPObservations& observations
 )
@@ -508,19 +555,20 @@ void compute_depthmap_from_obs(
 	double mdfp = 0.; //mean distance focal plane
 	for(std::size_t i =0; i < I; ++i) mdfp +=  mfpc.focal_plane(i);
 	mdfp /= double(I);
-	double v = mfpc.obj2v(mdfp*0.8);
+	const double v = mfpc.obj2v(mdfp*0.8);
 	
-	VirtualDepth vd{v};
+	DepthHypothesis hypothesis;
+		hypothesis.depth() = v;
 
 //2) Optimize depth
 	optimize_depth_from_obs(
-		vd, nullptr, observations, mfpc, scene
+		hypothesis, observations, mfpc, scene
 	);
 	
 //3) Build depth map
-	for (const auto& ob :  observations)	
+	for (const auto& ob : observations)	
 	{
-		dm.depth(ob.k, ob.l) = vd.v;
+		dm.depth(ob.k, ob.l) = hypothesis.depth();
 		dm.state(ob.k, ob.l) = DepthInfo::COMPUTED;
 	}
 }

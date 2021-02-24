@@ -14,21 +14,17 @@ struct DisparityCostError_
 	using ErrorType = Eigen::Matrix<double, 1, 1>; //SAD
 	
 	enum BlurMethod : std::uint8_t { S_TRANSFORM = 0, GAUSSIAN_BLUR = 1, APPROX_GAUSSIAN_BLUR = 2 };	
-		
-	const Image img_i; 
-	const Image img_j;
-	
-	const MicroImage mi_i;
-	const MicroImage mi_j;
+			
+	const MicroImage mii;
+	const MicroImage mij;
 	
 	const PlenopticCamera& mfpc;
 	
 	const P2D at;
 	const BlurMethod method;
 	
-    DisparityCostError_(
-    	const Image& img_i_, const Image& img_j_, 
-    	const MicroImage& mi_i_, const MicroImage& mi_j_, 
+    DisparityCostError_( 
+    	const MicroImage& mii_, const MicroImage& mij_, 
     	const PlenopticCamera& mfpc_,
     	P2D at_ = {-1.,-1.},
     	BlurMethod method_ = BlurMethod::S_TRANSFORM
@@ -41,9 +37,10 @@ struct DisparityCostError_
     	ErrorType& error
     ) const;
     
-    
-    double weight(double) const;
-    bool compute_at_pixel() const;
+//helper   
+    P2D 	disparity(double v) const;
+    double 	weight(double v) const;
+    bool 	compute_at_pixel() const;
 };
 
 using DisparityCostError = DisparityCostError_<false>;

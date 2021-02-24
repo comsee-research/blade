@@ -3,7 +3,7 @@
 #include <pleno/types.h>
 #include <pleno/geometry/camera/plenoptic.h>
 
-#include "geometry/depth/RawCoarseDepthMap.h"
+#include "geometry/depth/RawDepthMap.h"
 
 #include "strategy.h"
 
@@ -21,5 +21,5 @@ void export_cost_function(
 );
 
 void export_depth_histogram(
-	const RawCoarseDepthMap& dm
+	const RawDepthMap& dm
 );

@@ -60,13 +60,6 @@ void estimate_depth(
 	const DepthEstimationStrategy& strategies
 );
 
-void estimate_probabilistic_depth(
-	RawDepthMap& dm,
-	const PlenopticCamera& mfpc,
-	const Image& img,
-	const DepthEstimationStrategy& strategies
-);
-
 void estimate_depth_from_obs(
 	RawDepthMap& dm,
 	const PlenopticCamera& mfpc,

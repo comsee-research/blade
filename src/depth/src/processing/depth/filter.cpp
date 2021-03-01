@@ -84,15 +84,15 @@ RawDepthMap mean_filter_depth(const RawDepthMap& dm, const MIA& mia, double size
 }
 void inplace_mean_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
 {
+	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
+	
 	const RawDepthMap temp = mean_filter_depth(dm, mia, size);
 	temp.copy_to(dm);
 } 
 
 //******************************************************************************
 RawDepthMap minmax_filter_depth(const RawDepthMap& dm, double min, double max)
-{
-	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
-	
+{	
 	RawDepthMap temp{dm};
 	inplace_minmax_filter_depth(temp, min, max);
 	
@@ -100,9 +100,7 @@ RawDepthMap minmax_filter_depth(const RawDepthMap& dm, double min, double max)
 }
 
 void inplace_minmax_filter_depth(RawDepthMap& dm, double min, double max)
-{	
-	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
-	
+{		
 	constexpr std::size_t margin = 2;
 	
 	const std::size_t kmax = dm.width()-margin; 

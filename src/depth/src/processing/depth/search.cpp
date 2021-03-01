@@ -43,7 +43,12 @@ void optimize_depth(
 		using FunctorError_t = typename T::value_type;
 		
 		//Create observations
-		make_functors(functors, neighs, hypothesis.k, hypothesis.l, mfpc, scene, strategies.pairing);
+		make_functors(
+			functors, neighs, 
+			hypothesis.k, hypothesis.l, 
+			mfpc, scene, strategies.pairing,
+			hypothesis.u, hypothesis.v
+		);
 		//Create solver
 		lma::Solver<FunctorError_t> solver{AUTOMATIC_LAMBDA_SCALE, 50, 1.0 - 1e-12};
 		//Add observations to solver
@@ -145,7 +150,12 @@ void bruteforce_depth(
 		using T = std::decay_t<decltype(functors)>;
 		using FunctorError_t = typename T::value_type;
 		
-		make_functors(functors, neighs, hypothesis.k, hypothesis.l, mfpc, scene, strategies.pairing);
+		make_functors(
+			functors, neighs, 
+			hypothesis.k, hypothesis.l, 
+			mfpc, scene, strategies.pairing,
+			hypothesis.u, hypothesis.v
+		);
 		
 	 	//evaluate observations, find min cost
 		const double step = hypothesis.precision;
@@ -230,7 +240,12 @@ void gss_depth(
 		using T = std::decay_t<decltype(functors)>;
 		using FunctorError_t = typename T::value_type;
 		
-		make_functors(functors, neighs, hypothesis.k, hypothesis.l, mfpc, scene, strategies.pairing);
+		make_functors(
+			functors, neighs, 
+			hypothesis.k, hypothesis.l, 
+			mfpc, scene, strategies.pairing, 
+			hypothesis.u, hypothesis.v
+		);
 		
 		auto F = [&functors](double v) -> double {
 			typename FunctorError_t::ErrorType err;

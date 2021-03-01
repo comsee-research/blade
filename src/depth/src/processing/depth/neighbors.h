@@ -4,6 +4,7 @@
 #include <map>
 
 #include <pleno/geometry/mia.h>
+#include <pleno/geometry/sensor.h>
 
 #include "../../types.h"
 
@@ -18,6 +19,10 @@ std::vector<IndexPair> neighbors(
 std::map<double, std::vector<IndexPair>> neighbors_by_rings(
 	const MIA& mia, std::size_t k, std::size_t l, 
 	double v, double minv = 5., double maxv = 12.
+);
+
+std::vector<IndexPair> pixels_neighbors(
+	const MIA& mia, const Sensor& sensor, std::size_t k, std::size_t l
 );
 
 #if 0

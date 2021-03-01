@@ -70,8 +70,8 @@ bool DisparityCostError_<useBlur>::operator()(
 	ErrorType& error
 ) const
 {    
-	constexpr int window_size = 3;
-    constexpr double threshold_reprojected_pixel = double(window_size * window_size) - 1.;
+	constexpr int window_size = 5; //FIXME: size ? N=5 ?
+    constexpr double threshold_reprojected_pixel = 9.; //double(window_size * window_size) - 1.; //FIXME: 9?
     constexpr double epsilon = 2.2204e-16;
 
     error.setZero();
@@ -198,17 +198,32 @@ bool DisparityCostError_<useBlur>::operator()(
 	{
 		double cu = 0., cv = 0.;
 		
-		if ((at - mii.center).norm() < (at-mij.center).norm()) {
+		if ((at - mii.center).norm() < (at-mij.center).norm()) 
+		{
 			cu = mii.center[0]; cv = mii.center[1];
-		} else {
+		} 
+		else 
+		{
 			cu = mij.center[0]; cv = mij.center[1];
 		}
 		
-		int s = static_cast<int>(std::round(at[0] - cu + double(w / 2.)));
-		int t = static_cast<int>(std::round(at[1] - cv + double(h / 2.)));
-		
+		int s = std::min(
+					w-(window_size/2)-1, 
+					std::max(
+						0, 
+						static_cast<int>(std::round(at[0] - cu + double(w / 2.)))
+					)
+				);
+				
+		int t = std::min(
+					h-(window_size/2)-1, 
+					std::max(
+						0, 
+						static_cast<int>(std::round(at[1] - cv + double(h / 2.)))
+					)
+				); 		
 		//FIXME: think about getting a rotated rectangle along EPI
-		window = cv::Rect{s, t, window_size, window_size};	//FIXME: check bounds
+		window = cv::Rect{s, t, window_size, window_size};
 	#if 0
 		DEBUG_VAR(at);
 		DEBUG_VAR(cu); DEBUG_VAR(cv);
@@ -252,7 +267,7 @@ bool DisparityCostError_<useBlur>::operator()(
 	cv::imshow("wmask", wmask);
 	cv::imshow("cost", costimg);
 	
-	if (not use_all_micro_image())
+	if (compute_at_pixel())
 	{
 		cv::namedWindow("wcost", cv::WINDOW_NORMAL);
 		cv::resizeWindow("wcost", 200u, 200u);

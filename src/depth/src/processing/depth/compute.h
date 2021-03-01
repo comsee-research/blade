@@ -22,6 +22,16 @@ void compute_depthmap(
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
+void compute_dense_depthmap(
+	RawDepthMap& dm, 
+	const PlenopticCamera& mfpc, const Image& scene, 
+	std::size_t kinit, std::size_t linit,
+	const DepthEstimationStrategy& strategies
+);
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
 void compute_probabilistic_depthmap(
 	RawDepthMap& dm,
 	const PlenopticCamera& mfpc, const Image& scene, 

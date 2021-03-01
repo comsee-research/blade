@@ -1,6 +1,6 @@
 #include "neighbors.h"
 
-//#include <utility>
+#include <pleno/io/printer.h>
 
 std::vector<IndexPair> inner_ring(const MIA& mia, std::size_t k, std::size_t l)
 {
@@ -51,6 +51,33 @@ std::vector<IndexPair> neighbors(
 	return indexes;
 }
 
+std::vector<IndexPair> pixels_neighbors(
+	const MIA& mia, const Sensor& sensor, std::size_t k, std::size_t l
+)	
+{	
+	const auto c = mia.nodeInWorld(k,l);
+	const auto r = mia.radius() - 3. * mia.border();
+	
+	std::vector<IndexPair> indexes;
+	
+	const int umin = std::max(static_cast<int>(c[0] - r), 0);
+	const int umax = std::min(static_cast<int>(sensor.width()), static_cast<int>(c[0] + r));
+	const int vmin = std::max(static_cast<int>(c[1] - r), 0);
+	const int vmax = std::min(static_cast<int>(sensor.height()), static_cast<int>(c[1] + r));
+	
+	for (int u = umin; u < umax; ++u)
+	{
+		for (int v = vmin; v < vmax; ++v)
+		{
+			const P2D p = {u, v};
+			if ((p - c).norm() > r) continue; //out of distance
+			
+			indexes.emplace_back(static_cast<std::size_t>(u), static_cast<std::size_t>(v));	
+		}
+	}
+	
+	return indexes;
+}
 
 std::map<double, std::vector<IndexPair>> neighbors_by_rings(
 	const MIA& mia, std::size_t k, std::size_t l, 

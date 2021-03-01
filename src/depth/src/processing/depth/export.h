@@ -21,5 +21,5 @@ void export_cost_function(
 );
 
 void export_depth_histogram(
-	const RawDepthMap& dm
+	const RawDepthMap& dm, bool lighten = true
 );

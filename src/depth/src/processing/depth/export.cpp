@@ -378,11 +378,12 @@ void export_cost_function_from_obs(
 //******************************************************************************
 //******************************************************************************
 void export_depth_histogram(
-	const RawDepthMap& dm
+	const RawDepthMap& dm, bool lighten 
 ) 
 {
+	std::string type =  (dm.is_virtual_depth() ? "virtual-" : "metric-");
 	std::ofstream ofs(
-		"depthisto-" + std::to_string(getpid())+".csv"
+		"depthisto-" + type + std::to_string(getpid())+".csv"
 	); 
 	if (not ofs.good()) throw std::runtime_error(std::string("Cannot open file costfunction.csv"));
 	
@@ -397,6 +398,7 @@ void export_depth_histogram(
 	{
 		for (std::size_t l = 0; l < dm.height(); ++l)
 		{
+			if (lighten and dm.depth(k,l) == DepthInfo::NO_DEPTH) continue;
 			oss << k << "," << l << "," << dm.depth(k,l) << "\n";			
 		}
 	}

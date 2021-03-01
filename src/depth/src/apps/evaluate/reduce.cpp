@@ -39,13 +39,9 @@ std::map<Index, double> reduce(const std::map<Index, Pose>& maps)
 std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps)
 {
 	std::map<Index, double> dists;
-	
-	bool is_virtual_depth = true;
-	
+		
 	for (const auto& [frame, dm] : maps)
 	{
-		is_virtual_depth = is_virtual_depth and dm.is_virtual_depth();
-		
 		std::vector<double> vs; vs.reserve(dm.width() * dm.height());
 		
 		for (std::size_t k = 0; k < dm.width(); ++k)
@@ -62,7 +58,7 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps)
 		vs.shrink_to_fit();
 		const double vmed =  median(vs);
 		
-		if (is_virtual_depth) dists[frame] = dm.pcm().v2obj(vmed);
+		if (dm.is_virtual_depth()) dists[frame] = dm.pcm().v2obj(vmed);
 		else  dists[frame] = vmed;
 	}
 	
@@ -72,11 +68,10 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps)
 std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs)
 {
 	std::map<Index, double> dists;
-	bool is_virtual_depth = true;
 	
 	for (const auto& [frame, dm] : maps)
-	{
-		is_virtual_depth = is_virtual_depth and dm.is_virtual_depth();
+	{		
+		DEBUG_ASSERT((dm.is_coarse_map()), "Can't reduce dense map with observations.");
 		
 		const BAPObservations& baps = obs.at(frame);
 		
@@ -89,7 +84,7 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const s
 
 		const double vmed =  median(vs);
 			
-		if (is_virtual_depth) dists[frame] = dm.pcm().v2obj(vmed);
+		if (dm.is_virtual_depth()) dists[frame] = dm.pcm().v2obj(vmed);
 		else  dists[frame] = vmed;
 	}
 	

@@ -128,7 +128,7 @@ int main(int argc, char* argv[])
 	const auto [mind, maxd] = initialize_min_max_distance(mfpc);
 	const double dmin = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
 			2. /* mfpc.obj2v(maxd) */
-		: 	std::min(mfpc.v2obj(15.), mind);
+		: 	std::max(mfpc.v2obj(15.), mind);
 	
 	const double dmax = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
 			15. /* mfpc.obj2v(mind) */
@@ -143,14 +143,7 @@ int main(int argc, char* argv[])
 			strategies.dtype, strategies.mtype
 		};
 	
-		if (strategies.probabilistic)
-		{	
-			estimate_probabilistic_depth(dm, mfpc, pictures[frame], strategies);
-		}
-		else
-		{
-			estimate_depth(dm, mfpc, pictures[frame], strategies);
-		}
+		estimate_depth(dm, mfpc, pictures[frame], strategies);
 		
 		if (save())
 		{
@@ -168,7 +161,7 @@ int main(int argc, char* argv[])
 			v::save(name.str(), v::make_serializable(&dm));
 		}
 		
-		if (finished()) break;
+		if ((frame < pictures.size()-1) and finished()) break;
 		clear();
 	}
 	

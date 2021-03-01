@@ -127,10 +127,16 @@ int main(int argc, char* argv[])
 		PRINT_WARN("\t3.2) Export depth histogram");
 		RawDepthMap dm{mfpc};
 		v::load(config.path.dm, v::make_serializable(&dm));
+		
+		RawDepthMap odm = dm.is_virtual_depth() ? dm.to_metric(mfpc) : dm.to_virtual(mfpc);
+		
 		PRINT_INFO("=== Exporting histogram");
 		export_depth_histogram(dm);	
+		export_depth_histogram(odm);
+			
 		PRINT_INFO("=== Displaying depthmap");
 		display(dm);
+		display(odm);
 	}
 	else if (config.path.features != "")
 	{

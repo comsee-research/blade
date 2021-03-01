@@ -81,8 +81,8 @@ GUI(
 		  			);	
 			}
 		}
+		
+		Viewer::context().layer(Viewer::layer()++).update();  
 	}
-	
-	Viewer::context().layer(Viewer::layer()++).update();  
 );
 }

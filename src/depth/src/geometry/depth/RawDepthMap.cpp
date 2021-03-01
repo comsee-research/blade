@@ -126,7 +126,7 @@ Image RawDepthMap::to_image() const
 			}
 			else if (is_dense_map())
 			{
-				depthmap.at<cv::Vec3b>(l, k) = d, d, d;	//(row,col) access
+				depthmap.at<cv::Vec3b>(l, k) = cv::Vec3b{d, d, d};	//(row,col) access
 			}
 		}
 	}

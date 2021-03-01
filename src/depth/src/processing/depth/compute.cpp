@@ -1,5 +1,7 @@
 #include "compute.h"
 
+#include <algorithm>
+
 #include <pleno/io/printer.h>
 #include <pleno/io/choice.h>
 
@@ -58,6 +60,28 @@ bool is_contrasted_enough(
 	return (contrast >= threshold_contrast);
 }
 
+bool is_pixel_contrasted_enough(
+	const MIA& mia, const Image& scene,
+	double u, double v
+) 
+{
+	constexpr double threshold_contrast = 5.;
+	constexpr int W = 3;
+	
+	Image r;
+	cv::getRectSubPix(
+		scene, cv::Size{W,W}, 
+		cv::Point2d{u, v}, r
+	);				
+	
+	cv::Scalar mean, std;
+	cv::meanStdDev(r, mean, std); 
+	
+	const double contrast = std[0];
+
+	return (contrast >= threshold_contrast);
+}
+
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
@@ -71,10 +95,8 @@ void compute_depthmap(
 	constexpr double nbsample = 15.;
 	constexpr double N = 1.96; //FIXME: increase N ?
 	
-	int nbrejected = 0;
-	int nbinvalided = 0;
-	int nbcomputed = 0;
-	
+	DEBUG_ASSERT((dm.is_coarse_map()), "The map type must be set to COARSE.");
+		
 	std::queue<IndexPair> microimages;
 	microimages.emplace(kinit, linit);
 	
@@ -110,40 +132,49 @@ void compute_depthmap(
 			
 			//filter texture		 	
 		 	if (not (strategies.filter) or is_contrasted_enough(mfpc.mia(), scene, ck, cl))
-		 	{
-			 	++nbrejected;
-			 	
+		 	{			 	
 			 	DepthEstimationStrategy strat = strategies;
-			 	strat.metric = false;
+			 	strat.metric = false; //force init in virtual space
 			 	
 			 	initialize_depth(
-			 		hypothesis,
-			 		ordered_neighs[1.7], mfpc, scene, //micro-images of the same type
-			 		strat
+			 		hypothesis, ordered_neighs[1.7],  //micro-images of the same type
+			 		mfpc, scene, strat
 			 	);
 		 	}
 		 	
 		 	if (not (hypothesis.is_valid() and dm.is_valid_depth(hypothesis.depth())))
-		 	{
-		 		++nbinvalided;
-		 		
-		 		dm.depth(ck, cl) = DepthInfo::NO_DEPTH;
-		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;	
-
-		 		continue;		 	
+		 	{		 		
+		 		dm.depth(ck, cl) 		= DepthInfo::NO_DEPTH;
+		 		dm.confidence(ck, cl) 	= DepthInfo::NO_CONFIDENCE;
+		 		dm.state(ck, cl)		= DepthInfo::State::COMPUTED;	 	
 		 	}
-		 	
-		 	dm.depth(ck, cl) 		= hypothesis.depth();
-		 	dm.confidence(ck, cl) 	= hypothesis.confidence();
-		 	dm.state(ck, cl) 		= DepthInfo::State::INITIALIZED;				
+		 	else
+		 	{		 	
+		 		dm.depth(ck, cl) 		= hypothesis.depth();
+		 		dm.confidence(ck, cl) 	= hypothesis.confidence();
+		 		dm.state(ck, cl) 		= DepthInfo::State::INITIALIZED;				
+		 	}
 		}
 		
 		//Compute depth hypothesis
 		if(dm.state(ck,cl) == DepthInfo::State::INITIALIZED)
 		{
 			//compute neighbors
-			std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, std::ceil(std::fabs(dm.depth(ck, cl))), 2., 12.);
+			const double maxabsv = std::ceil(std::fabs(dm.depth(ck, cl)));
+			std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, maxabsv, 2., 12.);
 			
+		#if 0 //SAME TYPE ONLY	
+			neighs.erase(
+				std::remove_if(neighs.begin(), neighs.end(),
+					[t = mfpc.mia().type(3u, ck, cl), &mfpc](const IndexPair& n) -> bool {
+						return (mfpc.mia().type(3u, n.k, n.l) != t);
+					}
+				), 
+				neighs.end()
+			);
+			neighs.shrink_to_fit();
+		#endif	
+		
 			DepthHypothesis hypothesis;
 				hypothesis.depth() = dm.depth(ck, cl);
 				hypothesis.k = ck;
@@ -158,14 +189,12 @@ void compute_depthmap(
 			{
 				const double stepv = (dm.max_depth() - dm.min_depth()) / nbsample;
 				
-				hypothesis.min = hypothesis.depth() - stepv;;
+				hypothesis.min = hypothesis.depth() - stepv;
 				hypothesis.max = hypothesis.depth() + stepv;
 				hypothesis.precision = nbsample;
 				
 				bruteforce_depth(
-					hypothesis, 
-					neighs, mfpc, scene,
-					strategies
+					hypothesis, neighs, mfpc, scene, strategies
 				);
 		 	}
 		 	else if (strategies.search == SearchStrategy::GOLDEN_SECTION)
@@ -175,9 +204,7 @@ void compute_depthmap(
 				hypothesis.precision = std::sqrt(strategies.precision);
 			
 				gss_depth(
-					hypothesis,
-					neighs, mfpc, scene,
-					strategies
+					hypothesis, neighs, mfpc, scene, strategies
 				);
 			}
 			
@@ -185,19 +212,19 @@ void compute_depthmap(
 		 	
 			if (hypothesis.is_valid() and isValidDepth) 
 			{
-				dm.depth(ck, cl) = hypothesis.depth();
-		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;
-				++nbcomputed;
+				dm.depth(ck, cl) 		= hypothesis.depth();
+				dm.confidence(ck, cl) 	= hypothesis.confidence();
+		 		dm.state(ck, cl) 		= DepthInfo::State::COMPUTED;
 			}
 			else 
 			{
-				dm.depth(ck, cl) = DepthInfo::NO_DEPTH;
-		 		dm.state(ck, cl) = DepthInfo::State::COMPUTED;
-				++nbrejected;
+				dm.depth(ck, cl) 		= DepthInfo::NO_DEPTH;
+				dm.confidence(ck, cl) 	= DepthInfo::NO_CONFIDENCE;
+		 		dm.state(ck, cl) 		= DepthInfo::State::COMPUTED;
 				
 				continue;
-			}	
-			
+			}		
+	#if 0		
 			//depth is valid
 			for (auto &n: neighs) 
 			{
@@ -235,13 +262,189 @@ void compute_depthmap(
 			 			dm.state(n.k, n.l) = DepthInfo::State::INITIALIZED;	
 			 		}
 		 		}		
-			}	
+			}
+	#endif			
 		}		
 	}
 	PRINT_DEBUG("Local depth estimation finished.");
-	DEBUG_VAR(nbrejected);
-	DEBUG_VAR(nbinvalided);
-	DEBUG_VAR(nbcomputed);
+}
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+void compute_dense_depthmap(
+	RawDepthMap& dm, 
+	const PlenopticCamera& mfpc, const Image& scene, 
+	std::size_t kinit, std::size_t linit,
+	const DepthEstimationStrategy& strategies
+)
+{		
+	constexpr double nbsample = 15.;
+	constexpr double N = 1.96; //FIXME: increase N ?
+	
+	DEBUG_ASSERT((dm.is_dense_map()), "The map type must be set to DENSE.");
+	
+	std::queue<IndexPair> microimages;
+	microimages.emplace(kinit, linit);
+	
+	while (not (microimages.empty()))
+	{
+		auto [ck, cl] = microimages.front(); //current indexes
+		microimages.pop();
+				
+		std::vector<IndexPair> pixels = pixels_neighbors(mfpc.mia(), mfpc.sensor(), ck, cl);	
+		
+		auto is_mi_state = [&pixels, &dm](DepthInfo::State state) -> bool {
+			for (const auto& [u, v] : pixels)
+				if (dm.state(u, v) == state) 
+					return true; 
+			return false;		
+		};
+		
+		auto min_max_mi_depth_hypothesis = [&pixels, &dm]() -> std::pair<double, double> {
+			double min = 1e9;
+			double max = -1e9;
+			for (const auto& [u, v] : pixels)
+			{
+				if (dm.state(u,v) != DepthInfo::State::UNINITIALIZED)
+				{
+					const double d = dm.depth(u, v);
+					if (d != DepthInfo::NO_DEPTH) 
+					{
+						if (d > max) max = d;
+						if (d < min) min = d;
+					}
+				}
+			}			
+			return {min, max};
+		};
+			
+		//Already computed, nothing to do
+		if (is_mi_state(DepthInfo::State::COMPUTED)) continue;
+		
+		//Compute first hypothesis using inner ring
+		if (is_mi_state(DepthInfo::State::UNINITIALIZED))
+		{
+			//get neighbors
+			std::map<double, std::vector<IndexPair>> ordered_neighs = neighbors_by_rings(mfpc.mia(), ck, cl, 3.5, 2.);
+			
+			//add to queue
+			for (auto &n: ordered_neighs[1.]) microimages.push(n);
+
+			//filter at micro-image level	
+			const bool mi_rejected = (strategies.filter) and not(is_contrasted_enough(mfpc.mia(), scene, ck, cl));
+			
+			for (const auto& [u, v] : pixels)
+			{
+				DepthHypothesis hypothesis;
+					//set microimage indexes
+					hypothesis.k = ck;
+					hypothesis.l = cl;
+					//set min/max depth
+					hypothesis.min = dm.min_depth();
+					hypothesis.max = dm.max_depth();
+					//set nb sample to draw
+					hypothesis.precision = nbsample;
+					//set pixel coordinates
+					hypothesis.u = static_cast<double>(u);
+					hypothesis.v = static_cast<double>(v);	
+				
+				const bool pixel_rejected = (strategies.filter) and not(is_pixel_contrasted_enough(mfpc.mia(), scene, u, v));
+						 	
+			 	if (not mi_rejected and not pixel_rejected) //filter texture
+			 	{
+				 	DepthEstimationStrategy strat = strategies;
+				 	strat.metric = false; //Force init in virtual space
+				 	
+				 	initialize_depth(
+				 		hypothesis,	ordered_neighs[1.7], //micro-images of the same type
+				 		mfpc, scene, strat
+				 	);
+			 	}
+			 	
+			 	if (not (hypothesis.is_valid() and dm.is_valid_depth(hypothesis.depth())))
+			 	{			 		
+			 		//PRINT_DEBUG("Invalid depth("<<u<<", "<<v<<") = " << hypothesis.depth());
+			 		dm.depth(u, v) 		= DepthInfo::NO_DEPTH;
+					dm.confidence(u, v)	= DepthInfo::NO_CONFIDENCE;
+			 		dm.state(u, v) 		= DepthInfo::State::COMPUTED;	 	
+			 	}
+			 	else 
+			 	{
+				 	//PRINT_DEBUG("depth("<<u<<", "<<v<<") = " << hypothesis.depth());
+				 	dm.depth(u, v) 		= hypothesis.depth();
+				 	dm.confidence(u, v)	= hypothesis.confidence();
+				 	dm.state(u, v) 		= DepthInfo::State::INITIALIZED;
+			 	}
+			}//end for each pixel				
+		}
+	
+		//Compute depth hypothesis
+		if (is_mi_state(DepthInfo::State::INITIALIZED))
+		{
+			const auto [min, max] = min_max_mi_depth_hypothesis();
+			const double maxabsv = std::ceil(std::max(std::fabs(min), std::fabs(max)));
+			
+			//compute neighbors
+			std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, maxabsv, 2., 12.);
+			
+			//for each pixel
+			for (const auto& [u, v] : pixels)
+			{
+				//if already computed pixel
+				if (dm.state(u, v) == DepthInfo::COMPUTED) continue;
+				
+				DepthHypothesis hypothesis;
+					hypothesis.depth() = dm.depth(u, v);
+					hypothesis.k = ck;
+					hypothesis.l = cl;	
+					hypothesis.u = static_cast<double>(u);
+					hypothesis.v = static_cast<double>(v);	
+				
+				//compute hypothesis
+				if (strategies.search == SearchStrategy::NONLIN_OPTIM)
+				{	
+					optimize_depth(hypothesis, neighs, mfpc, scene, strategies);
+				}
+				else if (strategies.search == SearchStrategy::BRUTE_FORCE)
+				{
+					const double stepv = (dm.max_depth() - dm.min_depth()) / nbsample;
+					
+					hypothesis.min = min - stepv;
+					hypothesis.max = max + stepv;
+					hypothesis.precision = nbsample;
+					
+					bruteforce_depth(
+						hypothesis, neighs, mfpc, scene, strategies
+					);
+			 	}
+			 	else if (strategies.search == SearchStrategy::GOLDEN_SECTION)
+				{				
+					hypothesis.min = std::max(min - N, dm.min_depth());
+					hypothesis.max = max + N;
+					hypothesis.precision = std::sqrt(strategies.precision);
+				
+					gss_depth(
+						hypothesis, neighs, mfpc, scene, strategies
+					);
+				}
+							 	
+				if (hypothesis.is_valid() and dm.is_valid_depth(hypothesis.depth())) 
+				{
+					dm.depth(u, v) 		= hypothesis.depth();
+					dm.confidence(u, v) = hypothesis.confidence();
+			 		dm.state(u, v) 		= DepthInfo::State::COMPUTED;
+				}
+				else 
+				{
+					dm.depth(u, v) 		= DepthInfo::NO_DEPTH;
+					dm.confidence(u, v) = DepthInfo::NO_CONFIDENCE;
+			 		dm.state(u, v) 		= DepthInfo::State::COMPUTED;
+				}	
+			}//end for each pixel			
+		}		
+	}// end while there is still some mi in queue
+	PRINT_DEBUG("Local depth estimation finished.");
 }
 
 
@@ -265,6 +468,8 @@ void compute_probabilistic_depthmap(
 	constexpr double N = 1.96;
 	constexpr double PHI = (1. + std::sqrt(5.)) / 2.;
 	constexpr double PHI2 = PHI * PHI;
+	
+	DEBUG_ASSERT((dm.is_coarse_map()), "The map type must be set to COARSE.");
 	
 	std::queue<IndexPair> microimages;
 	microimages.emplace(kinit, linit);

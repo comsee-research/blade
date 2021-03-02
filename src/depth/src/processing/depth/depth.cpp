@@ -42,16 +42,20 @@ void estimate_depth(
 //------------------------------------------------------------------------------
 	RawDepthMap dm{depthmap};
 	
-	const unsigned int nthreads = strategies.multithread ? std::thread::hardware_concurrency()-1 : 1;
+	const unsigned int nbthreads = 
+		(strategies.multithread and strategies.nbthread == -1) ? 
+			std::thread::hardware_concurrency()-1 
+		: 	strategies.nbthread;
+		
 //------------------------------------------------------------------------------
 	auto t_start = std::chrono::high_resolution_clock::now();	
 	// Run depth estimation
 	std::vector<std::thread> threads;
-	for(unsigned int i=0; i< nthreads; ++i)
+	for(unsigned int i=0; i< nbthreads; ++i)
 	{
 		PRINT_DEBUG("Running estimation on thread (" << i <<")...");
 
-		const auto [k,l] = initialize_kl(i, nthreads, mfpc.mia(), strategies.init);
+		const auto [k,l] = initialize_kl(i, nbthreads, mfpc.mia(), strategies.init);
 		
 		if (strategies.mtype == RawDepthMap::MapType::DENSE)
 		{

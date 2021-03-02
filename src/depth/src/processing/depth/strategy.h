@@ -12,6 +12,7 @@ enum SearchStrategy : std::uint16_t {NONLIN_OPTIM = 0, BRUTE_FORCE = 1, GOLDEN_S
 
 struct DepthEstimationStrategy {
 	bool multithread					= true;
+	int nbthread						= -1;
 	
 	RawDepthMap::DepthType	dtype		= RawDepthMap::DepthType::VIRTUAL;
 	RawDepthMap::MapType	mtype		= RawDepthMap::MapType::COARSE;

@@ -12,6 +12,7 @@ void save(v::OutputArchive& archive, const DepthEstimationStrategy& strategies)
 	
 	archive
 		("multithread", strategies.multithread)
+		("nbthread", strategies.nbthread)
 		("dtype", dtype)
 		("mtype", mtype)
 		("init", init)
@@ -34,6 +35,7 @@ void load(v::InputArchive& archive, DepthEstimationStrategy& strategies)
 	
 	archive
 		("multithread", strategies.multithread)
+		("nbthread", strategies.nbthread)
 		("virtual", dtype)
 		("coarse", mtype)
 		("init", init)

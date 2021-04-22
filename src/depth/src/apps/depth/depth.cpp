@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
 	
 		//1.2) Load checkerboard images
 		PRINT_WARN("\t1.1) Load images");	
-		load(cfg_images.images(), images, cfg_images.meta().debayer());
+		load(cfg_images.images(), images, cfg_images.meta().debayered());
 		
 		DEBUG_ASSERT((images.size() != 0u),	"You need to provide images!");
 		
@@ -73,7 +73,7 @@ int main(int argc, char* argv[])
 		//1.3) Load white image corresponding to the aperture (mask)
 		PRINT_WARN("\t1.2) Load white image corresponding to the aperture (mask)");
 		ImageWithInfo mask_;
-		load(cfg_images.mask(), mask_, cfg_images.meta().debayer());
+		load(cfg_images.mask(), mask_, cfg_images.meta().debayered());
 		
 		const auto [mimg, mfnbr, __] = mask_;
 		mask = mimg;
@@ -131,7 +131,7 @@ int main(int argc, char* argv[])
 		: 	std::max(mfpc.v2obj(15.), mind);
 	
 	const double dmax = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
-			15. /* mfpc.obj2v(mind) */
+			20. /* mfpc.obj2v(mind) */
 		: 	std::min(mfpc.v2obj(2.), maxd);
 	
 	

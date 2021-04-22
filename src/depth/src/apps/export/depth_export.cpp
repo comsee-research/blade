@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
 	
 		//1.2) Load checkerboard images
 		PRINT_WARN("\t1.1) Load images");	
-		load(cfg_images.images(), images, cfg_images.meta().debayer());
+		load(cfg_images.images(), images, cfg_images.meta().debayered());
 		
 		DEBUG_ASSERT((images.size() != 0u),	"You need to provide images!");
 		
@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
 		//1.3) Load white image corresponding to the aperture (mask)
 		PRINT_WARN("\t1.2) Load white image corresponding to the aperture (mask)");
 		ImageWithInfo mask_;
-		load(cfg_images.mask(), mask_, cfg_images.meta().debayer());
+		load(cfg_images.mask(), mask_, cfg_images.meta().debayered());
 		
 		const auto [mimg, mfnbr, __] = mask_;
 		mask = mimg;

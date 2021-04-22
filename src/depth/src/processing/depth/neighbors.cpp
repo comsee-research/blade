@@ -110,7 +110,7 @@ std::map<double, std::vector<IndexPair>> neighbors_by_rings(
 	return indexes;
 }
 
-#if 0
+#if 1
 
 std::vector<IndexPair> half_neighbors(
 	const MIA& mia, std::size_t k, std::size_t l, 
@@ -131,7 +131,7 @@ std::vector<IndexPair> half_neighbors(
 			if (nl == l and nk == k) continue; //same microimage
 			if (nk > kmax or nk < kmin or nl > lmax or nl < lmin) continue; //out of indexes
 			if ((mia.nodeInWorld(nk, nl) - mia.nodeInWorld(k,l)).norm() > r) continue; //out of distance
-			if ((mia.nodeInWorld(nk, nl) - mia.nodeInWorld(k,l))[0] > 0.) continue; //out of distance
+			//if ((mia.nodeInWorld(nk, nl) - mia.nodeInWorld(k,l))[0] > 0.) continue; //out of distance
 			
 			indexes.emplace_back(static_cast<std::size_t>(nk), static_cast<std::size_t>(nl));	
 		}
@@ -159,7 +159,7 @@ std::map<double, std::vector<IndexPair>> half_neighbors_by_rings(
 			if (nl == l and nk == k) continue; //same microimage
 			if (nk > kmax or nk < kmin or nl > lmax or nl < lmin) continue; //out of indexes
 			if ((mia.nodeInWorld(nk, nl) - mia.nodeInWorld(k,l)).norm() > r) continue; //out of distance
-			if ((mia.nodeInWorld(nk, nl) - mia.nodeInWorld(k,l))[0] > 0.) continue; //out of distance
+			//if ((mia.nodeInWorld(nk, nl) - mia.nodeInWorld(k,l))[0] > 0.) continue; //out of distance
 			
 			const double d 	 	= (mia.nodeInWorld(nk, nl) - mia.nodeInWorld(k,l)).norm();
 			const double rd  	= std::ceil(10. * d - 0.5);

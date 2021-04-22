@@ -14,7 +14,7 @@ struct DepthHypothesis {
 //******************************************************************************
 	VirtualDepth vd = {0.};
 	
-	std::size_t k = 0u, l = 0u;
+	std::size_t k = 0ul, l = 0ul;
 	double u = -1., v = -1.;
 	
 	double cost = 0., sigma = 1.;

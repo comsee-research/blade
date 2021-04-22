@@ -28,10 +28,10 @@ void estimate_depth(
 )
 {	
 	std::string ss = "";
-	if (strategies.mtype == RawDepthMap::MapType::DENSE) ss = "dense";
-	else if (strategies.probabilistic) ss = "probabilistic";
+	if (strategies.mtype == RawDepthMap::MapType::REFINED) ss = "refined ";
+	else if (strategies.probabilistic) ss = "probabilistic ";
 	
-	PRINT_INFO("=== Start "+ss+" depth estimation");	
+	PRINT_INFO("=== Start " << ss <<"depth estimation" << (mfpc.multifocus() ? " (BLADE)": " (DISP)"));	
 #if DISPLAY_FRAME
 	RENDER_DEBUG_2D(
 		Viewer::context().layer(Viewer::layer()++)
@@ -42,10 +42,9 @@ void estimate_depth(
 //------------------------------------------------------------------------------
 	RawDepthMap dm{depthmap};
 	
-	const unsigned int nbthreads = 
-		(strategies.multithread and strategies.nbthread == -1) ? 
-			std::thread::hardware_concurrency()-1 
-		: 	strategies.nbthread;
+	const unsigned int nbthreads = strategies.multithread ?
+			(strategies.nbthread == -1 ?  std::thread::hardware_concurrency()-1 : strategies.nbthread)
+		: 	1;
 		
 //------------------------------------------------------------------------------
 	auto t_start = std::chrono::high_resolution_clock::now();	
@@ -57,11 +56,11 @@ void estimate_depth(
 
 		const auto [k,l] = initialize_kl(i, nbthreads, mfpc.mia(), strategies.init);
 		
-		if (strategies.mtype == RawDepthMap::MapType::DENSE)
+		if (strategies.mtype == RawDepthMap::MapType::REFINED)
 		{
 			threads.push_back(
 				std::thread(
-					compute_dense_depthmap, 
+					compute_refined_depthmap, 
 					std::ref(dm), std::cref(mfpc), std::cref(img), k, l,
 					std::cref(strategies)
 				)

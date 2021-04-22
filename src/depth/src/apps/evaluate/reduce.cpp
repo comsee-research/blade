@@ -71,7 +71,7 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const s
 	
 	for (const auto& [frame, dm] : maps)
 	{		
-		DEBUG_ASSERT((dm.is_coarse_map()), "Can't reduce dense map with observations.");
+		DEBUG_ASSERT((dm.is_coarse_map()), "Can't reduce refined map with observations.");
 		
 		const BAPObservations& baps = obs.at(frame);
 		

@@ -92,6 +92,7 @@ void make_functors_from_obs(
 	{
 		std::vector<IndexPair> neighs; neighs.reserve(obs_.size());
 		
+		//assume that observations idnexes are in mi space
 		for (const auto& ob : obs_) neighs.emplace_back(ob.k, ob.l);
 		
 		const auto [ck, cl] = neighs[0];

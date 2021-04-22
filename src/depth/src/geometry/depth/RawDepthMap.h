@@ -4,6 +4,8 @@
 
 #include <pleno/types.h>
 
+#include <pleno/io/archive.h>
+
 #include <pleno/geometry/camera/plenoptic.h>
 #include <pleno/geometry/mia.h>
 
@@ -31,7 +33,7 @@ public:
 	using DepthMapContainer = Eigen::Matrix<DepthInfo, Eigen::Dynamic /* row */, Eigen::Dynamic /* col */>;
 	
 	enum DepthType : bool { VIRTUAL = true, METRIC = false };
-	enum MapType : bool { COARSE = true, DENSE = false };
+	enum MapType : bool { COARSE = true, REFINED = false };
 private:
 	//TODO: remove dependancies to mfpc + graphic
 	static constexpr double minimal_resolvable_abs_depth = 2.;
@@ -94,7 +96,7 @@ public:
 	
 //******************************************************************************
 	bool is_coarse_map() const;
-	bool is_dense_map() const;
+	bool is_refined_map() const;
 	
 //******************************************************************************	
 	Image to_image() const;

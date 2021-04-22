@@ -21,7 +21,7 @@ void save(v::OutputArchive& archive, const DepthEstimationStrategy& strategies)
 		("filter", strategies.filter)
 		("belief", belief)
 		("search", search)
-		("metric", strategies.metric)
+		("metricspace", strategies.metric)
 		("probabilistic", strategies.probabilistic)
 		("precision", strategies.precision);
 }
@@ -44,7 +44,7 @@ void load(v::InputArchive& archive, DepthEstimationStrategy& strategies)
 		("filter", strategies.filter)
 		("belief", belief)
 		("search", search)
-		("metric", strategies.metric)
+		("metricspace", strategies.metric)
 		("probabilistic", strategies.probabilistic)
 		("precision", strategies.precision);
 		
@@ -170,7 +170,7 @@ std::ostream& operator<<(std::ostream& os, const DepthEstimationStrategy& mode)
 		<< "\t" << mode.belief << std::endl
 		<< "\t" << mode.search << std::endl
 		<< std::boolalpha 
-		<< "\tmetric = " << mode.metric << std::endl
+		<< "\tmetricspace = " << mode.metric << std::endl
 		<< "\tprobabilistic = " << mode.probabilistic << std::endl
 		<< "\tfilter = " << mode.filter << std::endl
 		<< "\trandomize = " << mode.randomize

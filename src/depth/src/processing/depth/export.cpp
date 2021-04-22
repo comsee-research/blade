@@ -7,6 +7,7 @@
 
 #include <pleno/io/printer.h> //DEBUG_ASSERT, PRINT_DEBUG
 #include <pleno/graphic/gui.h>
+#include <pleno/graphic/display.h>
 #include <pleno/graphic/viewer_2d.h>
 
 #include "optimization/depth.h" //lma
@@ -40,8 +41,7 @@ FORCE_GUI(true);
 	
 	Viewer::context().on_click([&](float x, float y)
     {
-		const int k = static_cast<int>( x * grid.width() /  gray.cols );
-		const int l = static_cast<int>( y * grid.height() / gray.rows );
+		const auto [k, l] = grid.uv2kl(x, y);
 
 		auto is_out_of_range = [&](int k, int l) {
 			return (k < 0 or k > int(grid.width()) or l < 0  or l > int(grid.height()));
@@ -97,13 +97,16 @@ void compute_costs(auto& data, auto& functors, const PlenopticCamera& mfpc, doub
 		Error_t err;
 		VirtualDepth depth{v};
 		
-		RMSE cost{0., 0};
+		RMSE rmse{0., 0};
+		MAE mae{0., 0};
 		
 		std::vector<double> costs; costs.reserve(functors.size());
 		std::vector<double> weights; weights.reserve(functors.size());
 		
-		double total_cost = 0.; double total_weight = 0.; double N = 0.;
-		double mu_err = 0., sigma_err = 0.; bool isGaussianInit = false;
+		double mwe = 0.; //mean weighted error
+		double rmswe = 0.; //root mean squared weighted error	
+		double tw = 0.; //total weigh
+		double N = 0.; //number of obs
 		
 		for (auto& f : functors)
 		{
@@ -114,31 +117,22 @@ void compute_costs(auto& data, auto& functors, const PlenopticCamera& mfpc, doub
 				const double weighted_err		= weight * error;
 				const double sqr_err 			= error * error;
 				const double weighted_sqr_err 	= sqr_err * weight;
-				const double var				= 1. / weight;
+				const double sqr_weighted_err 	= weighted_err * weighted_err;
 				
-				cost.add(error); //for RMSE
+				rmse.add(error); //for RMSE
+				mae.add(error); //for MAE
 				
 				costs.emplace_back(error); //for STATS
 				weights.emplace_back(weight); //for STATS
 				
-				total_cost 		+= weighted_err;; // weighted_sqr_err;//
-				total_weight  	+= weight;
-				N 				+= 1.;
-				
-				if(not isGaussianInit)
-				{
-					mu_err =  error;
-					sigma_err = var;
-					
-					isGaussianInit = true;
-					continue;
-				}
-				
-				//update mu and sigma
-				mu_err = (sigma_err * sqr_err + var * mu_err) / (sigma_err + var);
-				sigma_err = (sigma_err * var) / (sigma_err + var);
+				mwe 	+= weighted_err;
+				rmswe 	+= weighted_sqr_err;	
+				tw 		+= weight;
+				N 		+= 1.;
 			}				
 		}
+		
+		if (costs.empty()) continue;
 		
 		const double mu = mean(costs);
 		const double med = median(costs);
@@ -147,18 +141,21 @@ void compute_costs(auto& data, auto& functors, const PlenopticCamera& mfpc, doub
 		Datum_t d; 
 		d <<//v, z, depth
 				v, 1. / v, mfpc.v2obj(v), 
-			//rmse, cost, nobs
-				cost.get(), cost.sum(), N,
+			//rmse, mae, nobs
+				rmse.get(), mae.get(), N,
 			//median, mean, sigma
 				med, mu, sigma, 
-			//normalized weighed cost, mean weighed cost, wrmse, weight
-				total_cost / total_weight, total_cost / N, std::sqrt(total_cost / total_weight), total_weight, 
-			//gaussian mean, gaussian sigma, scaled sigma
-				mu_err, sigma_err, sigma_err / N; 
+			//mwe, rmswe
+				mwe / tw, std::sqrt(rmswe / tw);
 			
 		data.emplace_back(d);
 	}
+	
+	data.shrink_to_fit();
 }
+
+#include <pleno/io/cfg/scene.h>
+#include <pleno/geometry/object/plate.h>
 
 //******************************************************************************
 //******************************************************************************
@@ -184,7 +181,8 @@ void export_cost_function(
 		else vfunctor.emplace<FunctorsDISP>(FunctorsDISP{});  
 	
 	const auto [ck, cl] = extract_micro_image_indexes(scene, mfpc.mia());
-		
+	DEBUG_VAR(ck); DEBUG_VAR(cl);
+	
 	std::visit([&](auto&& functors) { 
 		using T = std::decay_t<decltype(functors)>;
 		using FunctorError_t = typename T::value_type;
@@ -198,10 +196,9 @@ void export_cost_function(
 		
 		std::ostringstream headercsv;
 		headercsv << "v,z,depth,baseline,"
-				<< "rmse,cost,nbobs,"
+				<< "rmse,mae,nbobs,"
 				<< "median,mean,sigma,"
-				<< "nwcost,mwcost,wrmse,weight,"
-				<< "muerr,sigmaerr,ssigmaerr\n";
+				<< "mwe,rmswe\n";
 		
 		ofscf << headercsv.str();
 //------------------------------------------------------------------------------		
@@ -213,8 +210,27 @@ void export_cost_function(
 		}
 		else
 		{
-			ordered_neighs[0.] = neighbors(mfpc.mia(), ck, cl, maxv, 2., 12.); //FIXED NEIGBORHOOD?
+			std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, maxv, 2., 12.); //FIXED NEIGBORHOOD?
+		#if 0 //SAME TYPE ONLY	
+			neighs.erase(
+				std::remove_if(neighs.begin(), neighs.end(),
+					[t = mfpc.mia().type(3u, ck, cl), &mfpc](const IndexPair& n) -> bool {
+						return (mfpc.mia().type(3u, n.k, n.l) != t);
+					}
+				), 
+				neighs.end()
+			);
+			neighs.shrink_to_fit();
+		#endif	
+		
+			ordered_neighs[0.] = std::move(neighs);
+			//ordered_neighs[0.].emplace_back(ck-1, cl);
 		}
+		
+		
+		minv = 2.01;
+		const double stepv = (maxv - minv) / nbsample;
+		maxv = maxv + 5.; //goes beyond to eliminate wrong hypotheses
 		
 		for(const auto& [baseline, neighs]: ordered_neighs)
 		{
@@ -237,14 +253,9 @@ void export_cost_function(
 			);	
 	//------------------------------------------------------------------------------
 	// Compute costs				
-	//------------------------------------------------------------------------------
-			//evaluate observations, find min cost
-			minv = 2.01;
-			const double stepv = (maxv - minv) / nbsample;
-			maxv = maxv + 10.; //goes beyond to eliminate wrong hypotheses
-		
+	//------------------------------------------------------------------------------		
 			functors.shrink_to_fit();
-			std::vector<PnD<16>> data;
+			std::vector<PnD<12>> data;
 			
 			PRINT_INFO("=== Computing cost function at ("<<ck<<", "<<cl<< ") with baseline (B = "<< baseline <<")...");
 			compute_costs(data, functors, mfpc, minv, maxv, stepv);
@@ -260,10 +271,9 @@ void export_cost_function(
 				int i = 0;
 				if (d[4] == 0.) continue; //if no observations: continue
 				oss << d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," << baseline << "," //v, z, depth, baseline
-					<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //rmse, cost, nobs
+					<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //rmse, mae, nobs
 					<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //median, mean, sigma
-					<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++]	<< "," << d[i++] << "," //normalized weighed cost, mean weighed cost, wrmse, weight
-					<< d[i++] 	<< "," << d[i++] 	<< "," << d[i] 		<< std::endl; //mu_err, sigma_err, scaled sigma
+					<< d[i++] 	<< "," << d[i] 	<< std::endl; //mwe, rmswe
 			}
 			
 			ofscf << oss.str();
@@ -300,7 +310,7 @@ void export_cost_function_from_obs(
 )
 {
 	const std::size_t I = mfpc.I();	
-	const bool useBlur = (I > 0u); 
+	const bool useBlur = (I > 0ul); 
 	
 	using FunctorsBLADE = std::vector<BlurAwareDisparityCostError>;
 	using FunctorsDISP = std::vector<DisparityCostError>;
@@ -323,10 +333,9 @@ void export_cost_function_from_obs(
 		
 		std::ostringstream headercsv;
 		headercsv << "v,z,depth,baseline,"
-				<< "rmse,cost,nbobs,"
+				<< "rmse,mae,nbobs,"
 				<< "median,mean,sigma,"
-				<< "nwcost,mwcost,wrmse,weight,"
-				<< "muerr,sigmaerr,ssigmaerr\n";
+				<< "mwe,rmswe\n";
 		
 		ofscf << headercsv.str();
 		
@@ -346,7 +355,7 @@ void export_cost_function_from_obs(
 		maxv = maxv + 5.; //goes beyond to eliminate wrong hypotheses
 	
 		functors.shrink_to_fit();
-		std::vector<PnD<16>> data;
+		std::vector<PnD<12ul>> data;
 		
 		PRINT_INFO("=== Computing cost function from observations...");
 		compute_costs(data, functors, mfpc, minv, maxv, stepv);
@@ -358,15 +367,14 @@ void export_cost_function_from_obs(
 		std::ostringstream oss;
 		
 		for (auto& d: data)
-		{ 
-			int i = 0;
-			if (d[4] == 0.) continue; //if no observations: continue
-			oss << d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," << 0. << "," //v, z, depth, baseline
-				<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //rmse, cost, nobs
-				<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //median, mean, sigma
-				<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++]	<< "," << d[i++] << "," //normalized weighed cost, mean weighed cost, wrmse, weight
-				<< d[i++] 	<< "," << d[i++] 	<< "," << d[i] 		<< std::endl; //mu_err, sigma_err, scaled sigma
-		}
+			{ 
+				int i = 0;
+				if (d[4] == 0.) continue; //if no observations: continue
+				oss << d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," << 0. << "," //v, z, depth, baseline
+					<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //rmse, mae, nobs
+					<< d[i++] 	<< "," << d[i++] 	<< "," << d[i++] 	<< "," //median, mean, sigma
+					<< d[i++] 	<< "," << d[i] 	<< std::endl; //mwe, rmswe
+			}
 		
 		ofscf << oss.str();
 		ofscf.close();	

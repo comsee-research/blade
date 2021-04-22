@@ -14,7 +14,7 @@
 template <bool useBlur>
 DisparityCostError_<useBlur>::DisparityCostError_(
 	const MicroImage& mii_, const MicroImage& mij_, 
-	const PlenopticCamera& mfpc_, P2D at_, BlurMethod method_
+	const PlenopticCamera& mfpc_, const P2D& at_, BlurMethod method_
 ) : mii{mii_}, mij{mij_}, mfpc{mfpc_}, at{at_}, method{method_}
 { }
 
@@ -35,24 +35,37 @@ DisparityCostError_<useBlur>::DisparityCostError_(
 template <bool useBlur>
 P2D DisparityCostError_<useBlur>::disparity(double v) const 
 { 
-	const P2D mli = mfpc.mla().nodeInWorld(mii.k, mii.l).head(2);
-	const P2D mlj = mfpc.mla().nodeInWorld(mij.k, mij.l).head(2);
+	//mi k,l indexes are in mi space, convert to mla space to access micro-lenses
+	const P2D idxi = mfpc.mi2ml(mii.k, mii.l);
+	const P2D idxj = mfpc.mi2ml(mij.k, mij.l); 
 	
-	const P2D deltaC = (mli - mlj) / mfpc.sensor().scale(); 
-	P2D disparity = deltaC / v; 
+	const P3D mli = mfpc.mla().nodeInWorld(idxi(0), idxi(1)); 
+	const P3D mlj = mfpc.mla().nodeInWorld(idxj(0), idxj(1));
+
+	const P2D deltac = (mii.center - mij.center);
 	
-	return disparity;
+	const double D = mfpc.D(idxi(0), idxi(1)); //(mfpc.D(idxi(0), idxi(1)) + mfpc.D(idxj(0), idxj(1))) / 2.;
+	const double d = mfpc.d(idxi(0), idxi(1)); //(mfpc.d(idxi(0), idxi(1)) + mfpc.d(idxi(0), idxi(1))) / 2.;
+		
+	const double lambda = D / (D + d);
+	
+	const P2D disparity = (deltac) * (
+		((1. - lambda) * v + lambda) / (v)
+	); 
+
+	return disparity; //in pixel
 }
 
 template <bool useBlur>
 double DisparityCostError_<useBlur>::weight(double v) const 
 { 
 	P2D disp = disparity(v); 
-	
 	const double d = disp.norm();
-	const double w = (v * v) / (d * d); 
 	
-	return w; 
+	const double sigma2_disp = 1.;
+	const double sigma2_v = sigma2_disp * (v * v) / (d * d); 
+	
+	return 1. / sigma2_v; 
 }
 
 template <bool useBlur>
@@ -77,7 +90,7 @@ bool DisparityCostError_<useBlur>::operator()(
     error.setZero();
     
 	const double v = depth.v;
-	const double radius = mfpc.mia().radius() - mfpc.mia().border();
+	const double radius = mfpc.mia().radius() - mfpc.mia().border() - 1.5;
     
 //0) Check hypotheses:
 	//0.1) Discard observation?
@@ -99,36 +112,28 @@ bool DisparityCostError_<useBlur>::operator()(
 	Image fref, ftarget;	
 	mii.mi.convertTo(fref, CV_64FC1, 1./255.); //(i)-view is ref
 	mij.mi.convertTo(ftarget, CV_64FC1, 1./255.); //(j)-view has to be warped
-
+	
 //2) compute mask	
 	Image fmask = Image{fref.size(), CV_64FC1, cv::Scalar::all(1.)};
 	trim_double(fmask, radius);
-		
-//3) warp image according to depth hypothesis
-	//3.1) compute transformation
-	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disp[0], 0., 1., disp[1]); //Affine transformation
 	
-	//3.2) warp mask and target	
-	const auto interp = cv::INTER_LINEAR; //cv::INTER_CUBIC; //
-	Image wmask, wtarget;
-	cv::warpAffine(fmask, wmask, M, fmask.size(), interp + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
-	cv::warpAffine(ftarget, wtarget, M, ftarget.size(), interp + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
-	
-	trim_double(wmask, radius); //Final mask =  micro-image mask INTER warped masked
-	
-	Image fedi, lpedi;	
+//3) compute blur	
+	Image fedi, lpedi;		
 	if constexpr (useBlur)
 	{
-		//3.3) compute blur	
 		if (mii.type != mij.type) //not same type
 		{
+			const P2D idxi = mfpc.mi2ml(mii.k, mii.l);
+			const P2D idxj = mfpc.mi2ml(mij.k, mij.l); 
+			
 			const double A = mfpc.mlaperture(); //mm
-			const double d = mfpc.d();			//mm
-			const double a_i = mfpc.obj2mla(mfpc.focal_plane(mii.type));  //mm, negative signed distance to mla
-			const double a_j = mfpc.obj2mla(mfpc.focal_plane(mij.type));  //mm, negative signed distance to mla
+			const double d_i = mfpc.d(idxi(0), idxi(1));	//mm, orthogonal distance center-sensor
+			const double d_j = mfpc.d(idxj(0), idxj(1));	//mm, orthogonal distance center-sensor
+			const double a_i = mfpc.obj2mla(mfpc.focal_plane(mii.type), idxi(0), idxi(1));  //mm, negative signed orthogonal distance to mla
+			const double a_j = mfpc.obj2mla(mfpc.focal_plane(mij.type), idxj(0), idxj(1));  //mm, negative signed orthogonal distance to mla
 
-			const double m_ij = ((A * A * d) / 2.) * ((1. / a_i) - (1. / a_j)); //mm²
-			const double c_ij = ((A * A * d * d) / 4.) * ((1. / (a_i * a_i)) - (1. / (a_j * a_j))); //mm²
+			const double m_ij = ((A * A) / 2.) * ((d_i / a_i) - (d_j / a_j)); //mm²
+			const double c_ij = ((A * A) / 4.) * (((d_i * d_i) / (a_i * a_i)) - ((d_j * d_j) / (a_j * a_j))); //mm²
 
 			const double rel_blur = m_ij * (1. / v) + c_ij; //mm²	
 
@@ -144,7 +149,7 @@ bool DisparityCostError_<useBlur>::operator()(
 		#if ENABLE_DEBUG_DISPLAY
 				PRINT_DEBUG("Views: (edi = target); ref ("<< mii.type+1<<"), target ("<< mij.type+1<<")");
 		#endif 
-				fedi = wtarget; //(j)-view has to be equally-defocused
+				fedi = ftarget; //(j)-view has to be equally-defocused
 			}
 			else //(j)-view is more defocused the the (i)-view
 			{
@@ -166,8 +171,8 @@ bool DisparityCostError_<useBlur>::operator()(
 				{
 					Image medi, bedi, bmask;
 					
-					medi = fedi.mul(wmask); //apply mask on edi
-					cv::GaussianBlur(wmask, bmask, cv::Size{0,0}, sigma_r, sigma_r); //blur mask
+					medi = fedi.mul(fmask); //apply mask on edi
+					cv::GaussianBlur(fmask, bmask, cv::Size{0,0}, sigma_r, sigma_r); //blur mask
 					cv::GaussianBlur(fedi, bedi, cv::Size{0,0}, sigma_r, sigma_r); //blur masked image	
 					cv::divide(bedi, bmask, fedi); //divide the blurred masked image by the blurred mask 
 					break;
@@ -184,55 +189,48 @@ bool DisparityCostError_<useBlur>::operator()(
 	{
 		UNUSED(fedi); UNUSED(lpedi);
 	}
+		
+//4) warp image according to depth hypothesis
+	//4.1) compute transformation
+	cv::Mat M = (cv::Mat_<double>(2,3) << 1., 0., disp[0], 0., 1., disp[1]); //Affine transformation
 	
-	//3.4) apply mask
+	//4.2) warp mask and target	
+	const auto interp = cv::INTER_LINEAR; //cv::INTER_CUBIC; //
+	Image wmask, wtarget;
+	cv::warpAffine(fmask, wmask, M, fmask.size(), interp + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
+	cv::warpAffine(ftarget, wtarget, M, ftarget.size(), interp + cv::WARP_INVERSE_MAP, cv::BORDER_CONSTANT, cv::Scalar::all(0.));
+	
+	trim_double(wmask, radius); //Final mask =  micro-image mask INTER warped masked
+	
+	//4.3) apply mask
 	Image finalref = fref.mul(wmask);
 	Image finaltarget = wtarget.mul(wmask); 	
 	
-	//3.5) get sub window if at specific pixel
+	//4.4) get sub window if at specific pixel
 	const int h = mii.mi.rows;
 	const int w = mii.mi.cols;
 	
-	cv::Rect window{0,0, w, h};
+	cv::Rect window{0,0, w, h}; //initialize at all the micro-image content
 	if (compute_at_pixel())
 	{
-		double cu = 0., cv = 0.;
-		
-		if ((at - mii.center).norm() < (at-mij.center).norm()) 
-		{
-			cu = mii.center[0]; cv = mii.center[1];
-		} 
-		else 
-		{
-			cu = mij.center[0]; cv = mij.center[1];
-		}
-		
-		int s = std::min(
-					w-(window_size/2)-1, 
-					std::max(
-						0, 
-						static_cast<int>(std::round(at[0] - cu + double(w / 2.)))
-					)
-				);
+		const auto [cu, cv] = ((at - mii.center).norm() < (at-mij.center).norm()) ?
+				std::pair<double, double>{mii.center[0], mii.center[1]} 
+			: 	std::pair<double, double>{mij.center[0], mij.center[1]};
+	
+		const int s = std::min(
+			w-(window_size/2)-1, 
+			std::max(0,	static_cast<int>(std::round(at[0] - cu + double(w / 2.))))
+		);
 				
-		int t = std::min(
-					h-(window_size/2)-1, 
-					std::max(
-						0, 
-						static_cast<int>(std::round(at[1] - cv + double(h / 2.)))
-					)
-				); 		
+		const int t = std::min(
+			h-(window_size/2)-1, 
+			std::max(0, static_cast<int>(std::round(at[1] - cv + double(h / 2.))))
+		); 		
 		//FIXME: think about getting a rotated rectangle along EPI
 		window = cv::Rect{s, t, window_size, window_size};
-	#if 0
-		DEBUG_VAR(at);
-		DEBUG_VAR(cu); DEBUG_VAR(cv);
-		DEBUG_VAR(s); DEBUG_VAR(t);	
-		DEBUG_VAR(window);
-	#endif
 	}
 	
-//4) compute cost	
+//5) compute cost	
 	const double summask = cv::sum(wmask(window))[0];
 	if (summask < threshold_reprojected_pixel) return false;
 	

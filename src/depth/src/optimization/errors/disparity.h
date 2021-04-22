@@ -26,7 +26,7 @@ struct DisparityCostError_
     DisparityCostError_( 
     	const MicroImage& mii_, const MicroImage& mij_, 
     	const PlenopticCamera& mfpc_,
-    	P2D at_ = {-1.,-1.},
+    	const P2D& at_ = {-1.,-1.},
     	BlurMethod method_ = BlurMethod::S_TRANSFORM
     );
     DisparityCostError_(const DisparityCostError_& o);

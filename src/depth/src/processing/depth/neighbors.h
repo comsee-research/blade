@@ -25,7 +25,7 @@ std::vector<IndexPair> pixels_neighbors(
 	const MIA& mia, const Sensor& sensor, std::size_t k, std::size_t l
 );
 
-#if 0
+#if 1
 std::vector<IndexPair> half_neighbors(
 	const MIA& mia, std::size_t k, std::size_t l, 
 	double v, double minv = 5., double maxv = 12.

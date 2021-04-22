@@ -1,6 +1,7 @@
 #include "export.h"
 
 #include <iostream>
+#include <unistd.h>
 
 #include <pleno/io/printer.h>
 

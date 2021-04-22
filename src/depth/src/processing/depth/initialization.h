@@ -1,7 +1,5 @@
 #pragma once
 
-#include <random>
-
 #include <pleno/types.h>
 
 #include <pleno/geometry/camera/plenoptic.h>

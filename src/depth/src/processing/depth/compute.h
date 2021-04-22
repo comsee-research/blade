@@ -22,7 +22,7 @@ void compute_depthmap(
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
-void compute_dense_depthmap(
+void compute_refined_depthmap(
 	RawDepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,

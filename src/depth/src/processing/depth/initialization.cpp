@@ -238,10 +238,10 @@ void initialize_depth(
 	constexpr double nbsupplsample = 5.; 
 	
 #if USE_SAME_SEED 
-    static std::mt19937 mt;
+    static thread_local std::mt19937 mt;
 #else
-    static std::random_device rd;
-    static std::mt19937 mt(rd());
+    static thread_local std::random_device rd;
+    static thread_local std::mt19937 mt(rd());
 #endif
 	
 	const double stepv = (hypothesis.max - hypothesis.min) / hypothesis.precision;

@@ -157,7 +157,7 @@ std::map<Index, RawDepthMap> load_from_csv(std::string path, const PlenopticCame
 		
 		RawDepthMap dm{mfpc, mind, maxd, 
 			RawDepthMap::DepthType::METRIC, 
-			coarse ? RawDepthMap::MapType::COARSE : RawDepthMap::MapType::DENSE
+			coarse ? RawDepthMap::MapType::COARSE : RawDepthMap::MapType::REFINED
 		};
 		
 		for (const auto& [k, l, d] : klds)

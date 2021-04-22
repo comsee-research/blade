@@ -124,7 +124,7 @@ Image RawDepthMap::to_image() const
 					cv::Scalar(d,d,d), CV_FILLED
 				);	
 			}
-			else if (is_dense_map())
+			else if (is_refined_map())
 			{
 				depthmap.at<cv::Vec3b>(l, k) = cv::Vec3b{d, d, d};	//(row,col) access
 			}
@@ -151,10 +151,14 @@ RawDepthMap RawDepthMap::to_metric(const PlenopticCamera& pcm) const
 	for(std::size_t k = 0; k < width(); ++k)
 	{
 		for(std::size_t l = 0; l < height(); ++l)
-		{
+		{						
 			if(depth(k,l) != DepthInfo::NO_DEPTH)
 			{
-				mdm.depth(k,l) = pcm.v2obj(depth(k,l));
+				P2D idx;
+				if (is_refined_map()) { const auto [k_, l_] =  pcm.mia().uv2kl(k, l); idx = pcm.mi2ml(k_, l_); }
+				else { idx = pcm.mi2ml(k, l); }
+				
+				mdm.depth(k,l) = pcm.v2obj(depth(k,l), idx(0), idx(1));
 			}
 			mdm.state(k,l) = state(k,l);
 			mdm.confidence(k,l) = confidence(k,l);
@@ -181,7 +185,11 @@ RawDepthMap RawDepthMap::to_virtual(const PlenopticCamera& pcm) const
 		{
 			if(depth(k,l) != DepthInfo::NO_DEPTH)
 			{
-				vdm.depth(k,l) = pcm.obj2v(depth(k,l));
+				P2D idx;
+				if (is_refined_map()) { const auto [k_, l_] =  pcm.mia().uv2kl(k, l); idx = pcm.mi2ml(k_, l_); }
+				else { idx = pcm.mi2ml(k, l); }
+				
+				vdm.depth(k,l) = pcm.obj2v(depth(k,l), idx(0), idx(1));
 			}
 			vdm.state(k,l) = state(k,l);
 			vdm.confidence(k,l) = confidence(k,l);
@@ -199,7 +207,7 @@ bool RawDepthMap::is_virtual_depth() const { return (depth_type == VIRTUAL); }
 bool RawDepthMap::is_metric_depth() const { return not is_virtual_depth(); }
 
 bool RawDepthMap::is_coarse_map() const { return (map_type == COARSE); }
-bool RawDepthMap::is_dense_map() const { return not is_coarse_map(); }
+bool RawDepthMap::is_refined_map() const { return not is_coarse_map(); }
 
 bool RawDepthMap::is_valid_depth(double d) const { return (is_disparity_estimation_possible(d) and not(is_depth_out_of_bounds(d))); }
 
@@ -307,6 +315,6 @@ void load(v::InputArchive& archive, RawDepthMap& dm)
 	dm.min_depth(min);
 	dm.max_depth(max);
 	
-	dm.map_type = coarse ? RawDepthMap::MapType::COARSE : RawDepthMap::MapType::DENSE;
+	dm.map_type = coarse ? RawDepthMap::MapType::COARSE : RawDepthMap::MapType::REFINED;
 	dm.depth_type = metric ? RawDepthMap::DepthType::METRIC : RawDepthMap::DepthType::VIRTUAL;
 }

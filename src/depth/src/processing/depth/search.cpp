@@ -7,6 +7,7 @@
 #include "optimization/errors/disparity.h" //DisparityCostError, BlurAwareDisparityCostError
 
 #include <pleno/processing/tools/stats.h>
+#include <pleno/processing/tools/rmse.h> //RMSE, MAE
 
 #include <pleno/io/printer.h>
 
@@ -130,9 +131,11 @@ void bruteforce_depth(
 	const DepthEstimationStrategy& strategies
 )
 {
+	const P2D idx = mfpc.mi2ml(hypothesis.k, hypothesis.l);
+		
 	const bool metric = strategies.metric;
-	const double min = metric ? mfpc.v2obj(hypothesis.max) : hypothesis.min;
-	const double max = metric ? mfpc.v2obj(hypothesis.min) : hypothesis.max;
+	const double min = metric ? mfpc.v2obj(hypothesis.max, idx(0), idx(1)) : hypothesis.min;
+	const double max = metric ? mfpc.v2obj(hypothesis.min, idx(0), idx(1)) : hypothesis.max;
 	
 	const std::size_t I = mfpc.I();	
 	const bool useBlur = (I > 0u); 
@@ -157,13 +160,14 @@ void bruteforce_depth(
 			hypothesis.u, hypothesis.v
 		);
 		
+		
 	 	//evaluate observations, find min cost
 		const double step = hypothesis.precision;
 		double mincost = 1e9;
 				
 		for (double d = min; d <= max; d += step)
 		{
-			const double v = metric ? mfpc.obj2v(d) : d;
+			const double v = metric ? mfpc.obj2v(d, idx(0), idx(1)) : d;
 			
 			if (std::fabs(v) < 2.) continue;
 			
@@ -173,26 +177,20 @@ void bruteforce_depth(
 			std::vector<double> costs; 
 			costs.reserve(functors.size());
 			
-			double total_cost = 0.; double total_weight = 0.;
+			MAE mae{0., 0};
 			
 			for (auto& f : functors)
 			{
 				if (f(depth, err))
 				{
-					const double error 			= err[0];
-					const double weight 		= f.weight(v);
-					const double weighted_err 	= weight * error;
-					
-					total_cost 		+= weighted_err;
-					total_weight  	+= weight;
-					
-					costs.emplace_back(weighted_err);
+					mae.add(err[0]);					
+					costs.emplace_back(err[0]);
 				}				
 			}
 						
-			const double c = (total_weight != 0.) ? (total_cost / total_weight) : 1e9; //0.;
+			const double c = mae.get();
 			
-			if (c < mincost) 
+			if (c < mincost and c != 0.) 
 			{
 				mincost = c;
 				
@@ -219,10 +217,12 @@ void gss_depth(
 	constexpr double invphi 	= (std::sqrt(5.) - 1.) / 2.;
 	constexpr double invphi2 	= (3. - std::sqrt(5.)) / 2.;
 
+	const P2D idx = mfpc.mi2ml(hypothesis.k, hypothesis.l);
+	
 	const bool metric = strategies.metric;
 		
-	const double min = metric ? mfpc.v2obj(hypothesis.max) : hypothesis.min;
-	const double max = metric ? mfpc.v2obj(hypothesis.min) : hypothesis.max;
+	const double min = metric ? mfpc.v2obj(hypothesis.max, idx(0), idx(1)) : hypothesis.min;
+	const double max = metric ? mfpc.v2obj(hypothesis.min, idx(0), idx(1)) : hypothesis.max;
 	
 	const std::size_t I = mfpc.I();	
 	const bool useBlur = (I > 0u); 
@@ -251,22 +251,17 @@ void gss_depth(
 			typename FunctorError_t::ErrorType err;
 			
 			VirtualDepth depth{v};
-			double total_cost = 0.; double total_weight = 0.;
+			MAE mae{0., 0};
 			
 			for (auto& f : functors)
 			{
 				if (f(depth, err))
-				{
-					const double error 				= err[0];
-					const double weight 			= f.weight(v);
-					const double weighted_err 		= weight * error;
-					
-					total_cost 		+= weighted_err;
-					total_weight  	+= weight;
+				{			
+					mae.add(err[0]);
 				}				
 			}
-			
-			return (total_weight != 0.) ? (total_cost / total_weight) : 0.;
+						
+			return mae.get();
 		};
 		
 	 	//run golden section search to find min cost	 	
@@ -278,24 +273,24 @@ void gss_depth(
 	 	
 		hypothesis.cost = 0.;
 		hypothesis.sigma = (b - a) / 2.;
-		hypothesis.depth() = metric ? mfpc.obj2v((a + b) / 2.) : (a + b) / 2.;
+		hypothesis.depth() = metric ? mfpc.obj2v((a + b) / 2., idx(0), idx(1)) : (a + b) / 2.;
 	 	
 	 	if (h <= hypothesis.precision) return; 
 	 	
 		double c = a + invphi2 * h;
-		double c_ = metric ? mfpc.obj2v(c) : c;
+		double c_ = metric ? mfpc.obj2v(c, idx(0), idx(1)) : c;
 		if (std::fabs(c_) < 2.) 
 		{
 			c_ = -2.01;
-			c  = metric ? mfpc.v2obj(c_) : c_;
+			c  = metric ? mfpc.v2obj(c_, idx(0), idx(1)) : c_;
 		}
 		
 		double d = a + invphi * h;
-		double d_ = metric ? mfpc.obj2v(d) : d;
+		double d_ = metric ? mfpc.obj2v(d, idx(0), idx(1)) : d;
 		if (std::fabs(d_) < 2.) 
 		{
 			d_ = 2.01;
-			d  = metric ? mfpc.v2obj(d_) : d_;
+			d  = metric ? mfpc.v2obj(d_, idx(0), idx(1)) : d_;
 		}
 		
 		double yc = F(c_);
@@ -312,11 +307,11 @@ void gss_depth(
 				yc = yd;
 				h = invphi * h;
 				d = a + invphi * h;
-				d_ = metric ? mfpc.obj2v(d): d;
+				d_ = metric ? mfpc.obj2v(d, idx(0), idx(1)): d;
 				if (std::fabs(d_) < 2.) 
 				{
 					d_ = 2.01;
-					d  = metric ? mfpc.v2obj(d_) : d_;
+					d  = metric ? mfpc.v2obj(d_, idx(0), idx(1)) : d_;
 				}
 				yd = F(d_);						
 			}
@@ -327,11 +322,11 @@ void gss_depth(
 				yd = yc;
 				h = invphi * h;
 				c = a + invphi2 * h;
-				c_ = metric ? mfpc.obj2v(c): c;
+				c_ = metric ? mfpc.obj2v(c, idx(0), idx(1)): c;
 				if (std::fabs(c_) < 2.) 
 				{
 					c_ = -2.01;
-					c  = metric ? mfpc.v2obj(c_) : c_;
+					c  = metric ? mfpc.v2obj(c_, idx(0), idx(1)) : c_;
 				}
 				yc = F(c_);
 			}	
@@ -342,13 +337,13 @@ void gss_depth(
 							
 		if (yc > yd or yc == 0.)
 		{
-			hypothesis.depth() = metric ? mfpc.obj2v((c + b) / 2.) : (c + b) / 2.;
+			hypothesis.depth() = metric ? mfpc.obj2v((c + b) / 2., idx(0), idx(1)) : (c + b) / 2.;
 			hypothesis.cost = yd;
 			hypothesis.sigma = (b - c) / 2.;
 		}
 		else
 		{
-			hypothesis.depth() = metric ? mfpc.obj2v((a + b) / 2.) : (a + b) / 2.;
+			hypothesis.depth() = metric ? mfpc.obj2v((a + b) / 2., idx(0), idx(1)) : (a + b) / 2.;
 			hypothesis.cost = yc;
 			hypothesis.sigma = (d - a) / 2.;
 		}	

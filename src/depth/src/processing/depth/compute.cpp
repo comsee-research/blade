@@ -38,18 +38,18 @@ bool is_contrasted_enough(
 	
 	const int W 		= int(std::ceil(mia.diameter()));
 	const auto center 	= mia.nodeInWorld(ck, cl); 
-	const double radius = mia.radius() - mia.border();
+	const double radius = mia.radius() - mia.border() - 1.5;
 	
-	Image r;
+	Image mi;
 	cv::getRectSubPix(
 		scene, cv::Size{W,W}, 
-		cv::Point2d{center[0], center[1]}, r
+		cv::Point2d{center[0], center[1]}, mi
 	);				
-	Image m = r.clone();
-	trim_binarize(m, radius);
+	Image mask = mi.clone();
+	trim_binarize(mask, radius);
 	
 	cv::Scalar mean, std;
-	cv::meanStdDev(r, mean, std, m); 
+	cv::meanStdDev(mi, mean, std, mask); 
 	
 	const double contrast = std[0];
 #if 0
@@ -272,7 +272,7 @@ void compute_depthmap(
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
-void compute_dense_depthmap(
+void compute_refined_depthmap(
 	RawDepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
@@ -282,7 +282,7 @@ void compute_dense_depthmap(
 	constexpr double nbsample = 15.;
 	constexpr double N = 1.96; //FIXME: increase N ?
 	
-	DEBUG_ASSERT((dm.is_dense_map()), "The map type must be set to DENSE.");
+	DEBUG_ASSERT((dm.is_refined_map()), "The map type must be set to REFINED.");
 	
 	std::queue<IndexPair> microimages;
 	microimages.emplace(kinit, linit);
@@ -584,7 +584,7 @@ void compute_probabilistic_depthmap(
 			{
 		 		const auto& [nk, nl] = neighs[0];
 		 		
-		 		const double B = (mfpc.mla().nodeInWorld(ck, cl) - mfpc.mla().nodeInWorld(nk, nl)).head(2).norm() / mfpc.sensor().scale();
+		 		const double B = (mfpc.mla().nodeInWorld(ck, cl) - mfpc.mla().nodeInWorld(nk, nl)).head<2>().norm() / mfpc.sensor().scale();
 		 		const double M =  neighs.size();
 			 				 	
 			 	DepthHypothesis nhypothesis;
@@ -754,6 +754,8 @@ void compute_depthmap_from_obs(
 	const BAPObservations& observations
 )
 {	
+	DEBUG_ASSERT((dm.is_coarse_map()), "The map type must be set to COARSE.");
+	
 //1) Initialize hypothesis
 	const std::size_t I = (mfpc.I() == 0) ? 1 : mfpc.I();
 	

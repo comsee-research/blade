@@ -24,6 +24,26 @@ std::map<Index, double> reduce(const std::map<Index, XYZs>& maps)
 	return dists;
 }
 
+std::map<Index, double> reduce(const std::map<Index, PointCloud>& maps)
+{
+	std::map<Index, double> dists;
+	
+	for (const auto& [frame, pc] : maps)
+	{
+		std::vector<double> zs; zs.reserve(pc.size());
+		std::transform(
+			pc.features().begin(), pc.features().end(),
+			std::back_inserter(zs),
+			[](const auto&p) -> double { return p.z(); }
+		);
+		
+		dists[frame] = median(zs);
+	}
+	
+	return dists;
+}
+
+
 std::map<Index, double> reduce(const std::map<Index, Pose>& maps)
 {
 	std::map<Index, double> dists;

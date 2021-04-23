@@ -147,7 +147,7 @@ void estimate_depth(
 	PRINT_INFO("=== Converting to pointcloud...");
 	PointCloud pc = to_pointcloud(mdm, mfpc, img);
 	
-	PRINT_INFO("=== Conversion finished! Displaying pointcloud...");	
+	PRINT_INFO("=== Conversion finished! Displaying pointcloud (" << pc.size() << ")...");	
 	display(mfpc);
 	display(0, pc);	
 	

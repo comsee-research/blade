@@ -103,6 +103,22 @@ std::map<Index, XYZs> load(const XYZsConfig& config)
 }
 
 //******************************************************************************
+std::map<Index, PointCloud> load(const PointCloudsConfig& config)
+{
+	std::map<Index, PointCloud> maps;
+	
+	for (auto & pc_cfg : config.pointclouds())
+	{	
+		PointCloud pc;
+		v::load(pc_cfg.path(), v::make_serializable(&pc));
+		
+		maps.emplace(pc_cfg.frame(), std::move(pc));
+	}
+	
+	return maps;
+}
+
+//******************************************************************************
 std::map<Index, RawDepthMap> load(const DepthMapsConfig& config, const PlenopticCamera& mfpc)
 {
 	std::map<Index, RawDepthMap> maps;

@@ -137,8 +137,11 @@ inline PointCloud to_pointcloud(const RawDepthMap& dm, const PlenopticCamera& mo
 					Ray3D ray; //in CAMERA frame
 					if (model.raytrace(pixel, kl[0], kl[1], ray))
 					{
+						//get depth plane
+						PlaneCoefficients plane; plane << 0., 0., 1., -depth;
+						
 						//get position
-						const P3D point = ray(depth);
+						const P3D point = line_plane_intersection(plane, ray);
 						
 						//get color
 						const RGBA color = [&]() -> RGBA {

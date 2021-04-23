@@ -19,6 +19,7 @@
 //geometry
 #include <pleno/geometry/observation.h>
 #include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/PointCloud.h"
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
@@ -95,6 +96,7 @@ int main(int argc, char* argv[])
 	
 	using DepthMapsType = std::variant<
 		std::map<Index, RawDepthMap>,
+		std::map<Index, PointCloud>,
 		std::map<Index, XYZs>,
 		std::map<Index, Pose>
 	>;
@@ -114,6 +116,14 @@ int main(int argc, char* argv[])
 	{		
 		// load
 		vdms.emplace<std::map<Index, RawDepthMap>>(load_from_csv(config.path.csv, mfpc));	
+	}
+	else if (config.path.pc != "")
+	{
+		PointCloudsConfig cfg;
+		v::load(config.path.pc, cfg);
+		
+		// load
+		vdms.emplace<std::map<Index, PointCloud>>(load(cfg));
 	}
 	else if (config.path.xyz != "")
 	{

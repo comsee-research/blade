@@ -47,6 +47,10 @@ Config_t parse_args(int argc, char *argv[])
 			po::value<std::string>()->default_value(""),
 			"Path to depthmaps configuration file"
 		)
+		("pc",
+			po::value<std::string>()->default_value(""),
+			"Path to pointclouds configuration file"
+		)
 		("csv",
 			po::value<std::string>()->default_value(""),
 			"Path to csv depthmap configuration file"

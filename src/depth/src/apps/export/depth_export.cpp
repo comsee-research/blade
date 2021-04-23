@@ -135,8 +135,8 @@ int main(int argc, char* argv[])
 		export_depth_histogram(odm);
 			
 		PRINT_INFO("=== Displaying depthmap");
-		display(dm);
-		display(odm);
+		display(dm, mfpc);
+		display(odm, mfpc);		
 	}
 	else if (config.path.features != "")
 	{

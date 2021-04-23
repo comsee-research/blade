@@ -13,6 +13,15 @@
 #include "geometry/depth/RawDepthMap.h"
 
 std::map<Index, double> reduce(const std::map<Index, XYZs>& maps);
+
 std::map<Index, double> reduce(const std::map<Index, Pose>& maps);
-std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps);
-std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs);
+
+std::map<Index, double> reduce(
+	const std::map<Index, RawDepthMap>& maps, const PlenopticCamera& pcm
+);
+
+std::map<Index, double> reduce(
+	const std::map<Index, RawDepthMap>& maps, 
+	const std::unordered_map<Index, BAPObservations> &obs, 
+	const PlenopticCamera& pcm
+);

@@ -42,6 +42,7 @@ set(MULTIFOCUS_SRCS
 	src/processing/depth/compute.cpp
 	src/processing/depth/strategy.cpp
 	##---------------
+	src/graphic/viewer_3d.cpp
 )
 
 message(${LIBPLENO_LIBRARIES})

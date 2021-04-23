@@ -98,7 +98,7 @@ void estimate_depth(
 	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
 
 	dm.copy_to(depthmap);
-	display(depthmap);
+	display(depthmap, mfpc);
 	
 //------------------------------------------------------------------------------	
 #if 0
@@ -142,7 +142,14 @@ void estimate_depth(
 	PRINT_INFO("=== Converting depth map...");	
 	RawDepthMap mdm = dm.to_metric(mfpc);
 	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
-	display(mdm);	
+	display(mdm, mfpc);	
+	
+	PRINT_INFO("=== Converting to pointcloud...");
+	PointCloud pc = to_pointcloud(mdm, mfpc, img);
+	
+	PRINT_INFO("=== Conversion finished! Displaying pointcloud...");	
+	display(mfpc);
+	display(0, pc);	
 	
 	wait();
 }
@@ -180,14 +187,14 @@ void estimate_depth_from_obs(
 	const double computational_time = std::chrono::duration<double>(t_end-t_start).count();
 	
 	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
-	display(dm);
+	display(dm, mfpc);
 	
 //------------------------------------------------------------------------------	
 	// Convert to metric depth map
 	PRINT_INFO("=== Converting depth map...");	
 	RawDepthMap mdm = dm.to_metric(mfpc);
 	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
-	display(mdm);	
+	display(mdm, mfpc);	
 	
 	wait();
 	

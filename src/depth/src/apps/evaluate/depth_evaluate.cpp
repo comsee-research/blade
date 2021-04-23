@@ -154,8 +154,8 @@ int main(int argc, char* argv[])
 		
 		if constexpr (std::is_same_v<T, std::map<Index, RawDepthMap>>)
 		{
-			if (config.path.features != "") depths = reduce(dms, obs);
-			else depths = reduce(dms);
+			if (config.path.features != "") depths = reduce(dms, obs, mfpc);
+			else depths = reduce(dms, mfpc);
 		}
 		else depths = reduce(dms);
 		

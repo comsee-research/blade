@@ -1,16 +1,24 @@
 #pragma once
 
 #include <pleno/graphic/display.h>
+#include "viewer_3d.h"
+
+#include <pleno/geometry/camera/plenoptic.h>
 
 #include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/PointCloud.h"
+#include "geometry/depth/convert.h"
 
-inline void display(const RawDepthMap& dm)
+#include "types.h"
+
+inline void display(const RawDepthMap& dm, const PlenopticCamera& pcm)
 {
 GUI(	
 	std::string ss = (dm.is_virtual_depth()?"":"Metric ");
 	
-	Image idm = dm.to_image();	
-	cv::cvtColor(idm, idm, CV_BGR2RGB);
+	const DepthMapImage dmi = to_image(dm, pcm);
+	
+	Image idm; cv::cvtColor(dmi.image, idm, CV_BGR2RGB);
 	RENDER_DEBUG_2D(
 		Viewer::context().layer(Viewer::layer()++)
 			.name(ss+"Depth Map"),
@@ -22,7 +30,7 @@ GUI(
 	const int W = idm.cols;
 	
 	cv::Mat legend;
-	cv::resize(dm.color_map(), legend, cv::Size(W, H), 0, 0, cv::INTER_AREA);
+	cv::resize(dmi.colormap, legend, cv::Size(W, H), 0, 0, cv::INTER_AREA);
 	cv::cvtColor(legend, legend, CV_BGR2RGB);
 	
 	ss = (dm.is_virtual_depth()?"":" (mm)");
@@ -66,7 +74,7 @@ GUI(
 		{
 			for(std::size_t l = lmin; l < lmax; ++l)
 			{
-				const auto center = dm.pcm().mia().nodeInWorld(k,l);	
+				const auto center = pcm.mia().nodeInWorld(k,l);	
 				std::ostringstream oss;
 		  		oss.precision((dm.is_virtual_depth()?3:4));
 		  		oss << dm.depth(k,l)*(dm.is_virtual_depth()?10.:1.);		
@@ -84,5 +92,18 @@ GUI(
 		
 		Viewer::context().layer(Viewer::layer()++).update();  
 	}
+);
+}
+
+inline void display(int f /* frame */, const PointCloud& pc)
+{	
+GUI(
+	RENDER_DEBUG_3D(
+		Viewer::context(Viewer::Mode::m3D)
+			.layer(Viewer::layer(Viewer::Mode::m3D))
+			.name("PointCloud ("+std::to_string(f)+")"), 
+		pc
+	);
+	Viewer::update(Viewer::Mode::m3D);
 );
 }

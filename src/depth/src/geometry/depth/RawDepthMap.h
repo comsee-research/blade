@@ -34,14 +34,8 @@ public:
 	
 	enum DepthType : bool { VIRTUAL = true, METRIC = false };
 	enum MapType : bool { COARSE = true, REFINED = false };
-private:
-	//TODO: remove dependancies to mfpc + graphic
-	static constexpr double minimal_resolvable_abs_depth = 2.;
-	const PlenopticCamera& mfpc; //for v2obj, obj2v conversion	
-		
-	std::size_t img_width;
-	std::size_t img_height;
 	
+private:	
 	DepthMapContainer map;
 	
 	double min_depth_;
@@ -54,16 +48,11 @@ private:
 		
 public:
 //******************************************************************************
-	//TODO: remove dependancies to mfpc
 	RawDepthMap(const PlenopticCamera& pcm, double mind = 2., double maxd = 15., DepthType dtype = VIRTUAL, MapType mtype = COARSE);
 	RawDepthMap(const RawDepthMap& o);
 	RawDepthMap(RawDepthMap&& o);
 
 //******************************************************************************	
-	const PlenopticCamera& pcm() const;	
-		
-	const cv::Mat& color_map() const;
-	
 	std::size_t width() const;
 	std::size_t height() const;
 
@@ -99,17 +88,11 @@ public:
 	bool is_refined_map() const;
 	
 //******************************************************************************	
-	Image to_image() const;
-	
 	RawDepthMap to_metric(const PlenopticCamera& pcm) const;
 	RawDepthMap to_virtual(const PlenopticCamera& pcm) const;
 
 protected:
 //******************************************************************************
-	void compute_colomap();
-	
-	std::uint8_t scale_depth(double d) const;
-	
 	bool is_depth_out_of_bounds(double d) const;
 	bool is_disparity_estimation_possible(double d) const;	
 	

@@ -36,7 +36,7 @@ std::map<Index, double> reduce(const std::map<Index, Pose>& maps)
 	return dists;
 }
 
-std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps)
+std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const PlenopticCamera& pcm)
 {
 	std::map<Index, double> dists;
 		
@@ -58,14 +58,14 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps)
 		vs.shrink_to_fit();
 		const double vmed =  median(vs);
 		
-		if (dm.is_virtual_depth()) dists[frame] = dm.pcm().v2obj(vmed);
+		if (dm.is_virtual_depth()) dists[frame] = pcm.v2obj(vmed);
 		else  dists[frame] = vmed;
 	}
 	
 	return dists;
 }
 
-std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs)
+std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs, const PlenopticCamera& pcm)
 {
 	std::map<Index, double> dists;
 	
@@ -84,7 +84,7 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const s
 
 		const double vmed =  median(vs);
 			
-		if (dm.is_virtual_depth()) dists[frame] = dm.pcm().v2obj(vmed);
+		if (dm.is_virtual_depth()) dists[frame] = pcm.v2obj(vmed);
 		else  dists[frame] = vmed;
 	}
 	

@@ -15,6 +15,9 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
+#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/PointCloud.h"
+#include "geometry/depth/convert.h"
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
@@ -148,17 +151,40 @@ int main(int argc, char* argv[])
 		if (save())
 		{
 			PRINT_INFO("=== Saving depthmap...");
-			std::ostringstream name; 
+			{
+				std::ostringstream name; 
+				
+				if (strategies.probabilistic) name << "pdm-";
+				else name << "dm-";
+				
+				if (mfpc.I() > 0u) name << "blade-";
+				else name << "disp-";
+				
+				name << frame << "-" << getpid() << ".bin.gz";
+				
+				v::save(name.str(), v::make_serializable(&dm));
+			}
 			
-			if (strategies.probabilistic) name << "pdm-";
-			else name << "dm-";
-			
-			if (mfpc.I() > 0u) name << "blade-";
-			else name << "disp-";
-			
-			name << frame << "-" << getpid() << ".bin.gz";
-			
-			v::save(name.str(), v::make_serializable(&dm));
+			PRINT_INFO("=== Saving pointcloud...");
+			{
+				PointCloud pc = [&]() -> PointCloud {
+					RawDepthMap mdm = dm.to_metric(mfpc);
+					return to_pointcloud(mdm, mfpc, pictures[frame]);
+				}();
+				
+				std::ostringstream name; 
+				
+				
+				if (strategies.probabilistic) name << "ppc-";
+				else name << "pc-";
+				
+				if (mfpc.I() > 0u) name << "blade-";
+				else name << "disp-";
+				
+				name << frame << "-" << getpid() << ".bin.gz";
+				
+				v::save(name.str(), v::make_serializable(&pc));	
+			}		
 		}
 		
 		if ((frame < pictures.size()-1) and finished()) break;

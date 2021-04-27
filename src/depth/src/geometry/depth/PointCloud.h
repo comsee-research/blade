@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include <pleno/types.h>
 #include <pleno/io/archive.h>
 
@@ -42,7 +44,8 @@ public:
 
 //modifiers	
 	std::size_t shrink() { features().shrink_to_fit(); pixels().shrink_to_fit(); colors().shrink_to_fit(); return size(); }
-	std::size_t reserve(std::size_t size) { features().reserve(size); pixels().reserve(size); colors().reserve(size); return capacity(); }
+	std::size_t reserve(std::size_t sz) { features().reserve(sz); pixels().reserve(sz); colors().reserve(sz); return capacity(); }
+	std::size_t resize(std::size_t sz) { features().resize(sz); pixels().resize(sz); colors().resize(sz); return size(); }
 
 //add
 	void add(const P3D& data, const P2D& pix = P2D{-1.,-1.}, const RGBA& col = RGBA{255.,255.,255.,255.}) 
@@ -51,6 +54,30 @@ public:
 		pixels().emplace_back(pix);
 		colors().emplace_back(col);
 	} 
+
+//swap	
+	void swap(std::size_t i, std::size_t j) 
+	{
+		assert(i < size()); assert(j < size());
+		
+		std::iter_swap(features().begin()+i, 	features().begin()+j);
+		std::iter_swap(pixels().begin()+i, 		pixels().begin()+j);
+		std::iter_swap(colors().begin()+i, 		colors().begin()+j);
+	}	
+
+//remove
+	void remove(std::size_t i) 
+	{
+		assert(i < size());
+		
+		std::iter_swap(features().begin()+i, 	features().end()-1);
+		std::iter_swap(pixels().begin()+i, 		pixels().end()-1);
+		std::iter_swap(colors().begin()+i, 		colors().end()-1);
+		
+		features().pop_back();
+		pixels().pop_back();
+		colors().pop_back();		
+	}
 
 protected:
 	//******************************************************************************

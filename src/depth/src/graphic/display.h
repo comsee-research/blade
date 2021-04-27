@@ -4,6 +4,8 @@
 #include "viewer_3d.h"
 
 #include <pleno/geometry/camera/plenoptic.h>
+#include <pleno/geometry/plane.h>
+#include <pleno/geometry/ray.h>
 
 #include "geometry/depth/RawDepthMap.h"
 #include "geometry/depth/PointCloud.h"
@@ -103,6 +105,19 @@ GUI(
 			.layer(Viewer::layer(Viewer::Mode::m3D))
 			.name("PointCloud ("+std::to_string(f)+")"), 
 		pc
+	);
+	Viewer::update(Viewer::Mode::m3D);
+);
+}
+
+inline void display(int f /* frame */, const Plane& plane)
+{	
+GUI(
+	RENDER_DEBUG_3D(
+		Viewer::context(Viewer::Mode::m3D)
+			.layer(Viewer::layer(Viewer::Mode::m3D))
+			.name("Plane ("+std::to_string(f)+")"), 
+		plane
 	);
 	Viewer::update(Viewer::Mode::m3D);
 );

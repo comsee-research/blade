@@ -20,6 +20,7 @@
 #include "geometry/depth/RawDepthMap.h"
 
 //processing
+#include <pleno/processing/estimation.h> //estimation_plane_fitting/ransac
 #include <pleno/processing/imgproc/improcess.h> //devignetting
 #include "processing/depth/initialization.h"
 #include "processing/depth/export.h"
@@ -137,6 +138,36 @@ int main(int argc, char* argv[])
 		PRINT_INFO("=== Displaying depthmap");
 		display(dm, mfpc);
 		display(odm, mfpc);		
+	}
+	else if (config.path.pc != "")
+	{
+		PRINT_WARN("\t3.2) Export plane from point cloud");
+		PointCloud pc;
+		v::load(config.path.pc, v::make_serializable(&pc));
+		
+		PRINT_INFO("=== Estimating plane from pointcloud");
+		const Plane plane_fitted = estimation_plane_fitting(pc.features());
+		DEBUG_VAR(plane_fitted);
+		DEBUG_VAR(plane_fitted.dist());
+		DEBUG_VAR(plane_fitted.origin().transpose());
+		DEBUG_VAR(plane_fitted.position().transpose());
+		
+		const Plane plane_ransac = estimation_plane_ransac(pc.features(), 2. /* mm */, 100000 /* n */, 100 /* k */, 500000 /* d */);
+		DEBUG_VAR(plane_ransac);
+		DEBUG_VAR(plane_ransac.dist());
+		DEBUG_VAR(plane_ransac.origin().transpose());
+		DEBUG_VAR(plane_ransac.position().transpose());		
+		
+		PRINT_INFO("=== Displaying pointcloud");
+		display(mfpc);
+		display(0, pc);
+	
+		display(0, plane_fitted);
+		display(1, plane_ransac);
+		
+		v::save("plane-"+std::to_string(getpid())+".js", v::make_serializable(&plane_ransac));
+		
+		wait();
 	}
 	else if (config.path.features != "")
 	{

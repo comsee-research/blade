@@ -51,6 +51,10 @@ Config_t parse_args(int argc, char *argv[])
 			po::value<std::string>()->default_value(""),
 			"Path to pointclouds configuration file"
 		)
+		("pl",
+			po::value<std::string>()->default_value(""),
+			"Path to planes configuration file"
+		)
 		("csv",
 			po::value<std::string>()->default_value(""),
 			"Path to csv depthmap configuration file"
@@ -119,6 +123,8 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.features 	= vm["features"].as<std::string>();
 	
 	config.path.dm 			= vm["dm"].as<std::string>();
+	config.path.pc 			= vm["pc"].as<std::string>();
+	config.path.pl 			= vm["pl"].as<std::string>();
 	config.path.csv			= vm["csv"].as<std::string>();
 	config.path.xyz 		= vm["xyz"].as<std::string>();
 	config.path.poses 		= vm["poses"].as<std::string>();

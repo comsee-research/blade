@@ -18,6 +18,7 @@ struct Config_t {
 		std::string features;
 		std::string output;
 		std::string dm;
+		std::string pc;
 	} path;
 };
 

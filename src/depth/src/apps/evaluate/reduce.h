@@ -19,6 +19,8 @@ std::map<Index, double> reduce(const std::map<Index, Pose>& maps);
 
 std::map<Index, double> reduce(const std::map<Index, PointCloud>& maps);
 
+std::map<Index, double> reduce(const std::map<Index, Plane>& maps);
+
 std::map<Index, double> reduce(
 	const std::map<Index, RawDepthMap>& maps, const PlenopticCamera& pcm
 );

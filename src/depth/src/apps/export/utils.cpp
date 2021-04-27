@@ -51,6 +51,10 @@ Config_t parse_args(int argc, char *argv[])
 			po::value<std::string>()->default_value(""),
 			"Path to depthmap file"
 		)
+		("pc",
+			po::value<std::string>()->default_value(""),
+			"Path to pointclouds file"
+		)
 		("proba", 
 			po::value<bool>()->default_value(true),
 			"Enable probabilistic estimation"
@@ -110,6 +114,7 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.features 	= vm["features"].as<std::string>();
 	config.path.output 		= vm["output"].as<std::string>();
 	config.path.dm 			= vm["dm"].as<std::string>();
+	config.path.pc 			= vm["pc"].as<std::string>();
 	
 	config.use_probabilistic 	= vm["proba"].as<bool>();
 	config.method				= vm["method"].as<std::uint16_t>();

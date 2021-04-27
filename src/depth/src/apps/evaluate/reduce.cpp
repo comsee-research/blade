@@ -43,6 +43,29 @@ std::map<Index, double> reduce(const std::map<Index, PointCloud>& maps)
 	return dists;
 }
 
+std::map<Index, double> reduce(const std::map<Index, Plane>& maps)
+{
+	std::map<Index, double> dists;
+	
+	auto it = maps.begin();
+	const Plane& ref = it->second;
+	
+	const P3D& p0 = ref.origin();
+	const double z0 = p0.z();
+	
+	dists[it->first] = z0;
+	++it;
+	
+	for (; it != maps.end(); ++it)
+	{
+		const Index frame = it->first;
+		const Plane& o = it->second;
+						
+		dists[frame] = z0 + o.dist(p0);
+	}
+	
+	return dists;
+}
 
 std::map<Index, double> reduce(const std::map<Index, Pose>& maps)
 {

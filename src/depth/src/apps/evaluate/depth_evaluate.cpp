@@ -18,6 +18,8 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
+#include <pleno/geometry/plane.h>
+
 #include "geometry/depth/RawDepthMap.h"
 #include "geometry/depth/PointCloud.h"
 
@@ -97,6 +99,7 @@ int main(int argc, char* argv[])
 	using DepthMapsType = std::variant<
 		std::map<Index, RawDepthMap>,
 		std::map<Index, PointCloud>,
+		std::map<Index, Plane>,
 		std::map<Index, XYZs>,
 		std::map<Index, Pose>
 	>;
@@ -124,6 +127,14 @@ int main(int argc, char* argv[])
 		
 		// load
 		vdms.emplace<std::map<Index, PointCloud>>(load(cfg));
+	}
+	else if (config.path.pl != "")
+	{
+		PlanesConfig cfg;
+		v::load(config.path.pl, cfg);
+		
+		// load
+		vdms.emplace<std::map<Index, Plane>>(load(cfg));
 	}
 	else if (config.path.xyz != "")
 	{

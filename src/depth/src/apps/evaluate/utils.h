@@ -15,6 +15,7 @@ struct Config_t {
 		std::string output;
 		std::string dm;
 		std::string pc;
+		std::string pl;
 		std::string csv;
 		std::string xyz;
 		std::string poses;

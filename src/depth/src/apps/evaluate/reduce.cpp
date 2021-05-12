@@ -19,6 +19,7 @@ std::map<Index, double> reduce(const std::map<Index, XYZs>& maps)
 		);
 		
 		dists[frame] = median(zs);
+		PRINT_DEBUG("frame ("<<frame<<"): med = " << median(zs) << ", mean = " << mean(zs) << ", std = " << stddev(zs));
 	}
 	
 	return dists;
@@ -38,6 +39,7 @@ std::map<Index, double> reduce(const std::map<Index, PointCloud>& maps)
 		);
 		
 		dists[frame] = median(zs);
+		PRINT_DEBUG("frame ("<<frame<<"): med = " << median(zs) << ", mean = " << mean(zs) << ", std = " << stddev(zs));
 	}
 	
 	return dists;
@@ -61,7 +63,7 @@ std::map<Index, double> reduce(const std::map<Index, Plane>& maps)
 		const Index frame = it->first;
 		const Plane& o = it->second;
 						
-		dists[frame] = z0 + o.dist(p0);
+		dists[frame] = (z0 + o.dist(p0));
 	}
 	
 	return dists;
@@ -85,24 +87,25 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const P
 		
 	for (const auto& [frame, dm] : maps)
 	{
-		std::vector<double> vs; vs.reserve(dm.width() * dm.height());
+		std::vector<double> zs; zs.reserve(dm.width() * dm.height());
+		
+		const RawDepthMap mdm = dm.to_metric(pcm);
 		
 		for (std::size_t k = 0; k < dm.width(); ++k)
 		{
 			for (std::size_t l = 0; l < dm.height(); ++l)
 			{
-				if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
+				if (mdm.depth(k,l) != DepthInfo::NO_DEPTH)
 				{
-					vs.emplace_back(dm.depth(k,l));
+					zs.emplace_back(mdm.depth(k,l));
 				}
 			}
 		}
 		
-		vs.shrink_to_fit();
-		const double vmed =  median(vs);
+		zs.shrink_to_fit();
 		
-		if (dm.is_virtual_depth()) dists[frame] = pcm.v2obj(vmed);
-		else  dists[frame] = vmed;
+		dists[frame] = median(zs);
+		PRINT_DEBUG("frame ("<<frame<<"): med = " << median(zs) << ", mean = " << mean(zs) << ", std = " << stddev(zs));
 	}
 	
 	return dists;
@@ -118,17 +121,17 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const s
 		
 		const BAPObservations& baps = obs.at(frame);
 		
-		std::vector<double> vs; vs.reserve(baps.size());
+		std::vector<double> zs; zs.reserve(baps.size());
+		
+		const RawDepthMap mdm = dm.to_metric(pcm);
 		
 		for (const auto& bap : baps)
 		{
-			vs.emplace_back(dm.depth(bap.k,bap.l));		
+			zs.emplace_back(mdm.depth(bap.k,bap.l));		
 		}
-
-		const double vmed =  median(vs);
-			
-		if (dm.is_virtual_depth()) dists[frame] = pcm.v2obj(vmed);
-		else  dists[frame] = vmed;
+		
+		dists[frame] = median(zs);
+		PRINT_DEBUG("frame ("<<frame<<"): med = " << median(zs) << ", mean = " << mean(zs) << ", std = " << stddev(zs));
 	}
 	
 	return dists;

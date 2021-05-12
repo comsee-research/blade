@@ -7,6 +7,8 @@
 
 #include <pleno/graphic/display.h>
 
+#include <pleno/processing/tools/stats.h> //median
+
 #include "geometry/depth/RawDepthMap.h"
 #include "../../graphic/display.h"
 
@@ -97,9 +99,20 @@ void estimate_depth(
 	
 	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
 
+	auto reduce = [](const RawDepthMap& dm) -> double {
+		std::vector<double> zs; zs.reserve(dm.width() * dm.height());		
+		for (std::size_t k = 0; k < dm.width(); ++k)
+			for (std::size_t l = 0; l < dm.height(); ++l)
+				if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
+					zs.emplace_back(dm.depth(k,l));
+					
+		zs.shrink_to_fit();
+		
+		return median(zs);
+	};
+
 	dm.copy_to(depthmap);
-	display(depthmap, mfpc);
-	
+	display(depthmap, mfpc);	
 //------------------------------------------------------------------------------	
 #if 0
 	// Filtered depth map
@@ -143,6 +156,9 @@ void estimate_depth(
 	RawDepthMap mdm = dm.to_metric(mfpc);
 	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
 	display(mdm, mfpc);	
+	
+	PRINT_DEBUG("Estimated virtual depth = "<< reduce(dm));
+	PRINT_DEBUG("Estimated metric depth = "<< reduce(mdm));
 	
 	PRINT_INFO("=== Converting to pointcloud...");
 	PointCloud pc = to_pointcloud(mdm, mfpc, img);

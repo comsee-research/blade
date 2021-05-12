@@ -10,13 +10,13 @@ void make_functors(
 )
 {
 	functors.clear();
-	
 	const std::size_t I = mfpc.I();
 	const int W = std::ceil(mfpc.mia().diameter());
 	const P2D at = P2D{cu, cv};
 	
 	//compute ref observation	 	
- 	MicroImage ref = mfpc.mia().mi(ck, cl, I);
+ 	MicroImage ref = mfpc.mia().mi(ck, cl, I); 
+ 	//ref.center -= P2D{0.5, 0.5}; //FIXME: move half pixel? 
  	mfpc.mia().extract(ref, scene);
  
  	if (mode == ObservationsPairingStrategy::CENTRALIZED)
@@ -26,7 +26,8 @@ void make_functors(
 	 	//for each neighbor, create observation
 	 	for (auto [nk, nl] : neighs)
 	 	{
-	 		MicroImage target = mfpc.mia().mi(nk, nl, I);
+	 		MicroImage target = mfpc.mia().mi(nk, nl, I); 
+	 		//target.center -= P2D{0.5, 0.5}; //FIXME: move half pixel? 
  			mfpc.mia().extract(target, scene);
 			
 			functors.emplace_back(

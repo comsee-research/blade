@@ -152,7 +152,16 @@ int main(int argc, char* argv[])
 		DEBUG_VAR(plane_fitted.origin().transpose());
 		DEBUG_VAR(plane_fitted.position().transpose());
 		
-		const Plane plane_ransac = estimation_plane_ransac(pc.features(), 2. /* mm */, 100000 /* n */, 100 /* k */, 500000 /* d */);
+		const std::size_t nbpts = pc.features().size(); 
+		DEBUG_ASSERT((nbpts >= 3), "You need at least 3 points to estimate a plane...");
+		
+		const std::size_t n = std::max(3ul, static_cast<std::size_t>(nbpts * 0.1)); //at least 10% of the points
+		const std::size_t d = std::max(n, static_cast<std::size_t>(nbpts * 0.2)); //at least 20% of the points
+		constexpr double threshold = 1.; //mm
+		
+		PRINT_INFO("RANSAC: pointcloud = " << nbpts << " points, n = " << n << ", d = " << d << ", and threshold = " << threshold << " mm");
+				
+		const Plane plane_ransac = estimation_plane_ransac(pc.features(), threshold, n, 100 /* k */, d);
 		DEBUG_VAR(plane_ransac);
 		DEBUG_VAR(plane_ransac.dist());
 		DEBUG_VAR(plane_ransac.origin().transpose());

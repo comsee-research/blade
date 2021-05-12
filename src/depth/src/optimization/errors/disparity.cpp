@@ -46,7 +46,9 @@ P2D DisparityCostError_<useBlur>::disparity(double v) const
 	
 	const double D = mfpc.D(idxi(0), idxi(1)); //(mfpc.D(idxi(0), idxi(1)) + mfpc.D(idxj(0), idxj(1))) / 2.;
 	const double d = mfpc.d(idxi(0), idxi(1)); //(mfpc.d(idxi(0), idxi(1)) + mfpc.d(idxi(0), idxi(1))) / 2.;
-		
+	
+	//const double fi = mfpc.mla().f(idxi(0), idxi(1));
+	
 	const double lambda = D / (D + d);
 	
 	const P2D disparity = (deltac) * (
@@ -119,7 +121,7 @@ bool DisparityCostError_<useBlur>::operator()(
 	
 //3) compute blur	
 	Image fedi, lpedi;		
-	if constexpr (useBlur)
+	if constexpr (false and useBlur)
 	{
 		if (mii.type != mij.type) //not same type
 		{
@@ -133,9 +135,9 @@ bool DisparityCostError_<useBlur>::operator()(
 			const double a_j = mfpc.obj2mla(mfpc.focal_plane(mij.type), idxj(0), idxj(1));  //mm, negative signed orthogonal distance to mla
 
 			const double m_ij = ((A * A) / 2.) * ((d_i / a_i) - (d_j / a_j)); //mm²
-			const double c_ij = ((A * A) / 4.) * (((d_i * d_i) / (a_i * a_i)) - ((d_j * d_j) / (a_j * a_j))); //mm²
+			const double q_ij = ((A * A) / 4.) * (((d_i * d_i) / (a_i * a_i)) - ((d_j * d_j) / (a_j * a_j))); //mm²
 
-			const double rel_blur = m_ij * (1. / v) + c_ij; //mm²	
+			const double rel_blur = m_ij * (1. / v) + q_ij; //mm²	
 
 			const double rho_sqr_r = rel_blur / (mfpc.sensor().scale() * mfpc.sensor().scale()); //pix²
 			const double kappa = mfpc.params().kappa; 

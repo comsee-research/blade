@@ -10,6 +10,9 @@
 #include <pleno/types.h>
 
 #include <pleno/graphic/gui.h>
+#include <pleno/graphic/viewer_2d.h>
+#include <pleno/graphic/viewer_3d.h>
+
 #include <pleno/io/printer.h>
 #include <pleno/io/choice.h>
 

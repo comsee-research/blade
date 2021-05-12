@@ -72,6 +72,12 @@ target_include_directories(depth_export PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_export ${MULTIFOCUS_LIBS} pthread)
 
 
+##################################################
+##################################################
+set(APP_CALIBRATE_SRCS src/apps/calibrate/calibrate.cpp src/apps/calibrate/utils.cpp)
+add_executable(depth_calibrate ${APP_CALIBRATE_SRCS} ${MULTIFOCUS_SRCS})
+target_include_directories(depth_calibrate PRIVATE ${MULTIFOCUS_INCDIRS})
+target_link_libraries(depth_calibrate ${MULTIFOCUS_LIBS} pthread)
 
 ##################################################
 ##################################################

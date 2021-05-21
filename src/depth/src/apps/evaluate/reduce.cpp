@@ -84,7 +84,7 @@ std::map<Index, double> reduce(const std::map<Index, Pose>& maps)
 std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const PlenopticCamera& pcm)
 {
 	std::map<Index, double> dists;
-		
+			
 	for (const auto& [frame, dm] : maps)
 	{
 		std::vector<double> zs; zs.reserve(dm.width() * dm.height());

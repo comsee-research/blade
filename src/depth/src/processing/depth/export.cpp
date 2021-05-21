@@ -2,7 +2,7 @@
 
 #include <variant> //std::variant, std::monostate; std::visit
 
-#include <pleno/processing/tools/rmse.h> //RMSE
+#include <pleno/processing/tools/error.h> //RMSE
 #include <pleno/processing/tools/stats.h> //median, mean, iqr, skewness, kurtosis, etc.
 
 #include <pleno/io/printer.h> //DEBUG_ASSERT, PRINT_DEBUG

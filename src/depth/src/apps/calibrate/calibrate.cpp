@@ -1,17 +1,9 @@
 //STD
 #include <iostream>
 #include <unistd.h>
-//EIGEN
-//BOOST
-//OPENCV
-#include <opencv2/opencv.hpp>
 
 //LIBPLENO
 #include <pleno/types.h>
-
-#include <pleno/graphic/gui.h>
-#include <pleno/graphic/viewer_2d.h>
-#include <pleno/graphic/viewer_3d.h>
 
 #include <pleno/io/printer.h>
 #include <pleno/io/choice.h>
@@ -19,15 +11,13 @@
 //geometry
 #include <pleno/geometry/observation.h>
 #include "geometry/depth/RawDepthMap.h"
-#include "geometry/depth/PointCloud.h"
-#include "geometry/depth/convert.h"
 
 //processing
 #include <pleno/processing/calibration/init.h> 
 #include <pleno/processing/imgproc/improcess.h> //devignetting
-#include "processing/depth/depth.h"
-#include "processing/depth/strategy.h"
-#include "processing/depth/initialization.h"
+#include <pleno/processing/tools/stats.h> //median
+
+#include "../../processing/calibration/calibration.h" 
 
 //config
 #include <pleno/io/cfg/images.h>
@@ -39,6 +29,7 @@
 
 #include <pleno/io/images.h>
 
+#include "eval.h"
 #include "utils.h"
 
 int main(int argc, char* argv[])
@@ -89,7 +80,7 @@ int main(int argc, char* argv[])
 	}
 	
 	PRINT_WARN("\t1.3) Devignetting images");
-	std::map<Index, Image> pictures;
+	std::unordered_map<Index, Image> pictures;
 	for (const auto& iwi : images)
 	{
 		Image unvignetted;
@@ -156,7 +147,7 @@ int main(int argc, char* argv[])
 	);
 	
 	PRINT_INFO("4.2) Split observations");
-	std::map<Index, BAPObservations> observations;
+	std::unordered_map<Index, BAPObservations> observations;
 	for(const auto& ob : bap_obs) observations[ob.frame].push_back(ob);
 
 	DEBUG_VAR(observations.size());
@@ -168,7 +159,7 @@ int main(int argc, char* argv[])
 	DepthMapsConfig cfg_dms;
 	v::load(config.path.dm, cfg_dms);
 	
-	std::map<Index, RawDepthMap> depthmaps;
+	std::unordered_map<Index, RawDepthMap> depthmaps;
 	
 	for (auto & cfg_dm : cfg_dms.maps())
 	{	
@@ -189,86 +180,59 @@ int main(int argc, char* argv[])
 ////////////////////////////////////////////////////////////////////////////////
 // 6) Start processing
 ////////////////////////////////////////////////////////////////////////////////	
-	//for each depth map
+	PRINT_WARN("6) Calibrate scale error");
+	
+	PRINT_INFO("\t6.1) Evaluate initial scale error");
+	evaluate_scale_error(mfpc, scene, depthmaps, observations, pictures);
+	
+	PRINT_INFO("\t6.2) Calibrate scale");
+	LinearFunction scaling;	
+	calibration_depthScaling(scaling, mfpc, scene, depthmaps, observations);
+	
+	PRINT_INFO("\t6.3) Evaluate rescaled error");
+	evaluate_scale_error(mfpc, scaling, scene, depthmaps, observations, pictures);
+	
+	PRINT_INFO("\t6.4) Computing new depth map");
+	auto reduce = [](const RawDepthMap& dm) -> double {
+		std::vector<double> zs; zs.reserve(dm.width() * dm.height());		
+		for (std::size_t k = 0; k < dm.width(); ++k)
+			for (std::size_t l = 0; l < dm.height(); ++l)
+				if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
+					zs.emplace_back(dm.depth(k,l));
+					
+		zs.shrink_to_fit();
+		
+		return median(zs);
+	};
+	
+	auto reduce_scaled = [&scaling](const RawDepthMap& dm) -> double {
+		std::vector<double> zs; zs.reserve(dm.width() * dm.height());		
+		for (std::size_t k = 0; k < dm.width(); ++k)
+			for (std::size_t l = 0; l < dm.height(); ++l)
+				if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
+					zs.emplace_back(scaling(dm.depth(k,l)));
+					
+		zs.shrink_to_fit();
+		
+		return median(zs);
+	};
+	
 	for (const auto& [frame, dm] : depthmaps)
 	{
-		if (frame == 0) continue;
+		const RawDepthMap mdm = dm.to_metric(mfpc);
+		const double z = reduce(mdm);
+		const double sz = reduce_scaled(mdm);
 		
-		//get image
-		const Image image = pictures[frame];
-				
-		//split observations according to cluster index
-		std::map<Index /* cluster index */, BAPObservations> clusters;
-		for(const auto& ob : observations[frame]) clusters[ob.cluster].push_back(ob);	
+		PRINT_INFO("Estimated depth of frame ("<< frame <<"): z = " << z << " (mm), rescaled z = " << sz << " (mm)");	
+	}
+	
+	if(save()) 
+	{
+		mfpc.scaling() = scaling;
+		PRINT_WARN("\t... Saving Intrinsic Parameters");
+		save("intrinsics-"+std::to_string(getpid())+".js", mfpc);
 		
-		std::map<Index /* cluster index */, P3D> centroids; 
-		
-		//for each cluster
-		for(auto & [cluster, obs] : clusters)
-		{
-			//compute reprojected point 
-			P3D centroid = P3D::Zero(); 
-			double n = 0.;
-			
-			//for each observation
-			for (const auto& ob : obs)
-			{
-				//get u,v
-				const double u = std::floor(ob.u);
-				const double v = std::floor(ob.v);
-				
-				//get depth
-				double depth = dm.is_refined_map() ? dm.depth(u,v) : dm.depth(ob.k, ob.l);
-				if (depth == DepthInfo::NO_DEPTH) continue;
-				if (dm.is_virtual_depth()) depth = mfpc.v2obj(depth, ob.k, ob.l);				
-				
-				//get pixel
-				const P2D pixel = P2D{ob.u, ob.v};
-				
-				//get ml indexes
-				const P2D kl = mfpc.mi2ml(ob.k, ob.l); 
-					
-				//raytrace
-				Ray3D ray; //in CAMERA frame
-				if (mfpc.raytrace(pixel, kl[0], kl[1], ray))
-				{
-					//get depth plane
-					PlaneCoefficients plane; plane << 0., 0., 1., -depth;
-					
-					//get position
-					const P3D point = line_plane_intersection(plane, ray);
-				
-					//accumulate
-					centroid += point; ++n;
-				}			
-			}
-			
-			if (n != 0.) centroid /= n;
-			
-			PRINT_DEBUG("Frame ("<< frame <<"), node ("<< cluster<<") = " << scene.node(cluster).transpose() << ", centroid = " << centroid.transpose());
-			centroids[cluster] = std::move(centroid);					
-		}
-		
-		wait();
-		
-		//compute distances and errors
-		RMSE rmse{0., 0ul};
-		
-		for (auto it = centroids.cbegin(); it != centroids.cend(); ++it)
-		{
-			for (auto nit = std::next(it, 1); nit != centroids.cend(); ++nit)	
-			{
-				const double ref = (scene.node(it->first) - scene.node(nit->first)).norm();
-				const double dist = (it->second - nit->second).norm();
-				
-				DEBUG_VAR(ref); DEBUG_VAR(dist);
-				rmse.add(ref-dist);							
-			}
-		}
-		
-		PRINT_DEBUG("Error of frame ("<< frame <<") = " << rmse.get());			
-		
-		wait();	
+		scaling.a = 1.; scaling.b = 0.;
 	}
 	
 	PRINT_INFO("========= EOF =========");

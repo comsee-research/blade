@@ -7,7 +7,7 @@
 #include "optimization/errors/disparity.h" //DisparityCostError, BlurAwareDisparityCostError
 
 #include <pleno/processing/tools/stats.h>
-#include <pleno/processing/tools/rmse.h> //RMSE, MAE
+#include <pleno/processing/tools/error.h> //RMSE, MAE
 
 #include <pleno/io/printer.h>
 

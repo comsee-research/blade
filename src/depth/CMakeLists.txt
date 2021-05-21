@@ -30,7 +30,9 @@ set(MULTIFOCUS_SRCS
 	src/geometry/depth/RawDepthMap.cpp
 	##---------------
 	src/optimization/depth.cpp
+	src/optimization/functions.cpp
 	src/optimization/errors/disparity.cpp
+	src/optimization/errors/scaling.cpp
 	##---------------
 	src/processing/depth/depth.cpp
 	src/processing/depth/filter.cpp
@@ -42,7 +44,10 @@ set(MULTIFOCUS_SRCS
 	src/processing/depth/compute.cpp
 	src/processing/depth/strategy.cpp
 	##---------------
+	src/processing/calibration/scaling.cpp
+	##---------------
 	src/graphic/viewer_3d.cpp
+	##---------------
 )
 
 message(${LIBPLENO_LIBRARIES})
@@ -74,7 +79,7 @@ target_link_libraries(depth_export ${MULTIFOCUS_LIBS} pthread)
 
 ##################################################
 ##################################################
-set(APP_CALIBRATE_SRCS src/apps/calibrate/calibrate.cpp src/apps/calibrate/utils.cpp)
+set(APP_CALIBRATE_SRCS src/apps/calibrate/calibrate.cpp src/apps/calibrate/utils.cpp src/apps/calibrate/eval.cpp)
 add_executable(depth_calibrate ${APP_CALIBRATE_SRCS} ${MULTIFOCUS_SRCS})
 target_include_directories(depth_calibrate PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_calibrate ${MULTIFOCUS_LIBS} pthread)

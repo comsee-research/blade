@@ -39,22 +39,25 @@ P2D DisparityCostError_<useBlur>::disparity(double v) const
 	const P2D idxi = mfpc.mi2ml(mii.k, mii.l);
 	const P2D idxj = mfpc.mi2ml(mij.k, mij.l); 
 	
-	const P3D mli = mfpc.mla().nodeInWorld(idxi(0), idxi(1)); 
-	const P3D mlj = mfpc.mla().nodeInWorld(idxj(0), idxj(1));
-
+#if 1	
 	const P2D deltac = (mii.center - mij.center);
 	
 	const double D = mfpc.D(idxi(0), idxi(1)); //(mfpc.D(idxi(0), idxi(1)) + mfpc.D(idxj(0), idxj(1))) / 2.;
 	const double d = mfpc.d(idxi(0), idxi(1)); //(mfpc.d(idxi(0), idxi(1)) + mfpc.d(idxi(0), idxi(1))) / 2.;
-	
-	//const double fi = mfpc.mla().f(idxi(0), idxi(1));
 	
 	const double lambda = D / (D + d);
 	
 	const P2D disparity = (deltac) * (
 		((1. - lambda) * v + lambda) / (v)
 	); 
+#else
+	const P3D mli = mfpc.mla().node(idxi(0), idxi(1)); 
+	const P3D mlj = mfpc.mla().node(idxj(0), idxj(1));
 
+	const P2D deltaC = (mlj - mli).head<2>();
+	
+	const P2D disparity = (deltaC) / (v * mfpc.sensor().scale());
+#endif
 	return disparity; //in pixel
 }
 
@@ -121,7 +124,7 @@ bool DisparityCostError_<useBlur>::operator()(
 	
 //3) compute blur	
 	Image fedi, lpedi;		
-	if constexpr (false and useBlur)
+	if constexpr (useBlur)
 	{
 		if (mii.type != mij.type) //not same type
 		{

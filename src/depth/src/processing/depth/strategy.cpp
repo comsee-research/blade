@@ -23,7 +23,9 @@ void save(v::OutputArchive& archive, const DepthEstimationStrategy& strategies)
 		("search", search)
 		("metricspace", strategies.metric)
 		("probabilistic", strategies.probabilistic)
-		("precision", strategies.precision);
+		("precision", strategies.precision)
+		("vmin", strategies.vmin)
+		("vmax", strategies.vmax);
 }
 
 void load(v::InputArchive& archive, DepthEstimationStrategy& strategies)
@@ -46,7 +48,9 @@ void load(v::InputArchive& archive, DepthEstimationStrategy& strategies)
 		("search", search)
 		("metricspace", strategies.metric)
 		("probabilistic", strategies.probabilistic)
-		("precision", strategies.precision);
+		("precision", strategies.precision)
+		("vmin", strategies.vmin)
+		("vmax", strategies.vmax);
 		
 	from_string(init, strategies.init);
 	from_string(pairing, strategies.pairing);
@@ -169,6 +173,7 @@ std::ostream& operator<<(std::ostream& os, const DepthEstimationStrategy& mode)
 		<< "\t" << mode.pairing << std::endl
 		<< "\t" << mode.belief << std::endl
 		<< "\t" << mode.search << std::endl
+		<< "\tvmin = " << mode.vmin << ", vmax = " << mode.vmax << std::endl
 		<< std::boolalpha 
 		<< "\tmetricspace = " << mode.metric << std::endl
 		<< "\tprobabilistic = " << mode.probabilistic << std::endl

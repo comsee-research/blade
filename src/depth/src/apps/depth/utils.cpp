@@ -58,6 +58,14 @@ Config_t parse_args(int argc, char *argv[])
 		("output,o",
 			po::value<std::string>()->default_value("depth.png"),
 			"Path to save depth map"
+		)
+		("save_all", 
+			po::value<bool>()->default_value(false),
+			"Save automaticaly all depthmap and pointcloud"
+		)
+		("run_all", 
+			po::value<bool>()->default_value(false),
+			"Run automaticaly all depthmap estimation"
 		);
 
 	po::variables_map vm;
@@ -107,6 +115,9 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.output 		= vm["output"].as<std::string>();
 	config.path.dm 			= vm["dm"].as<std::string>();
 	config.path.strategy	= vm["strategy"].as<std::string>();
+	
+	config.save_all			= vm["save_all"].as<bool>();
+	config.run_all			= vm["run_all"].as<bool>();
 	
 	return config; 
 }

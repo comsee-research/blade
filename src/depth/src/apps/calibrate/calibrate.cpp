@@ -32,6 +32,8 @@
 #include "eval.h"
 #include "utils.h"
 
+#define USE_QUADRATIC_SCALING 1
+
 int main(int argc, char* argv[])
 {
 	PRINT_INFO("========= Depth Calibration with a Multifocus plenoptic camera =========");
@@ -80,7 +82,7 @@ int main(int argc, char* argv[])
 	}
 	
 	PRINT_WARN("\t1.3) Devignetting images");
-	std::unordered_map<Index, Image> pictures;
+	IndexedImages pictures;
 	for (const auto& iwi : images)
 	{
 		Image unvignetted;
@@ -143,7 +145,7 @@ int main(int argc, char* argv[])
 	PRINT_INFO("4.1) Link observations");
 	init_extrinsics(
 		bap_obs, poses,
-		mfpc, scene, cfg_obs.features(), {}
+		mfpc, scene, cfg_obs.features()
 	);
 	
 	PRINT_INFO("4.2) Split observations");
@@ -186,32 +188,72 @@ int main(int argc, char* argv[])
 	evaluate_scale_error(mfpc, scene, depthmaps, observations, pictures);
 	
 	PRINT_INFO("\t6.2) Calibrate scale");
-	LinearFunction scaling;	
+#if USE_QUADRATIC_SCALING
+	QuadraticFunction scaling; //
+#else
+	LinearFunction scaling;	//
+#endif
 	calibration_depthScaling(scaling, mfpc, scene, depthmaps, observations);
 	
 	PRINT_INFO("\t6.3) Evaluate rescaled error");
 	evaluate_scale_error(mfpc, scaling, scene, depthmaps, observations, pictures);
 	
 	PRINT_INFO("\t6.4) Computing new depth map");
-	auto reduce = [](const RawDepthMap& dm) -> double {
-		std::vector<double> zs; zs.reserve(dm.width() * dm.height());		
-		for (std::size_t k = 0; k < dm.width(); ++k)
-			for (std::size_t l = 0; l < dm.height(); ++l)
+	auto reduce = [](const RawDepthMap& dm, const BAPObservations& obs = {}) -> double {
+		std::vector<double> zs; 
+		if (obs.empty())
+		{	
+			zs.reserve(dm.width() * dm.height());		
+			for (std::size_t k = 0; k < dm.width(); ++k)
+				for (std::size_t l = 0; l < dm.height(); ++l)
+					if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
+						zs.emplace_back(dm.depth(k,l));
+		}
+		else 
+		{
+			zs.reserve(obs.size());		
+			for (const auto& ob : obs)
+			{
+				std::size_t k = ob.k, l = ob.l;
+				if (dm.is_refined_map()) 
+				{
+					k = std::floor(ob.u);
+					l = std::floor(ob.v);
+				}
 				if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
 					zs.emplace_back(dm.depth(k,l));
-					
+			}
+		}				
 		zs.shrink_to_fit();
 		
 		return median(zs);
 	};
 	
-	auto reduce_scaled = [&scaling](const RawDepthMap& dm) -> double {
-		std::vector<double> zs; zs.reserve(dm.width() * dm.height());		
-		for (std::size_t k = 0; k < dm.width(); ++k)
-			for (std::size_t l = 0; l < dm.height(); ++l)
+	auto reduce_scaled = [&scaling](const RawDepthMap& dm, const BAPObservations& obs = {}) -> double {
+		std::vector<double> zs; 
+		if (obs.empty())
+		{	
+			zs.reserve(dm.width() * dm.height());		
+			for (std::size_t k = 0; k < dm.width(); ++k)
+				for (std::size_t l = 0; l < dm.height(); ++l)
+					if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
+						zs.emplace_back(scaling(dm.depth(k,l)));
+		} 
+		else 
+		{
+			zs.reserve(obs.size());		
+			for (const auto& ob : obs)
+			{
+				std::size_t k = ob.k, l = ob.l;
+				if (dm.is_refined_map()) 
+				{
+					k = std::floor(ob.u);
+					l = std::floor(ob.v);
+				}
 				if (dm.depth(k,l) != DepthInfo::NO_DEPTH)
 					zs.emplace_back(scaling(dm.depth(k,l)));
-					
+			}
+		}		
 		zs.shrink_to_fit();
 		
 		return median(zs);
@@ -220,19 +262,25 @@ int main(int argc, char* argv[])
 	for (const auto& [frame, dm] : depthmaps)
 	{
 		const RawDepthMap mdm = dm.to_metric(mfpc);
-		const double z = reduce(mdm);
-		const double sz = reduce_scaled(mdm);
+		const double z = reduce(mdm, observations[frame]);
+		const double sz = reduce_scaled(mdm, observations[frame]);
 		
 		PRINT_INFO("Estimated depth of frame ("<< frame <<"): z = " << z << " (mm), rescaled z = " << sz << " (mm)");	
 	}
 	
 	if(save()) 
 	{
-		mfpc.scaling() = scaling;
+#if USE_QUADRATIC_SCALING
+			mfpc.scaling().a = scaling.a;
+			mfpc.scaling().b = scaling.b;
+			mfpc.scaling().c = scaling.c;
+#else
+			mfpc.scaling().a = 0.;
+			mfpc.scaling().b = scaling.a;
+			mfpc.scaling().c = scaling.b;
+#endif							
 		PRINT_WARN("\t... Saving Intrinsic Parameters");
 		save("intrinsics-"+std::to_string(getpid())+".js", mfpc);
-		
-		scaling.a = 1.; scaling.b = 0.;
 	}
 	
 	PRINT_INFO("========= EOF =========");

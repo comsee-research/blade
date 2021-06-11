@@ -7,42 +7,71 @@
 //******************************************************************************
 RawDepthMap median_filter_depth(const RawDepthMap& dm, const MIA& mia, double size)
 {
-	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
-	
 	RawDepthMap filtereddm{dm};
 	
 	constexpr std::size_t margin = 2;
 	
-	const std::size_t kmax = dm.width()-margin; 
-	const std::size_t kmin = 0+margin;
-	const std::size_t lmax = dm.height()-margin; 
-	const std::size_t lmin = 0+margin;
-	
-	for(std::size_t k = kmin; k < kmax; ++k)
+	if (dm.is_coarse_map())
 	{
-		for(std::size_t l = lmin; l < lmax; ++l)
-		{
-			double sz = size;
-			if (size == AUTOMATIC_FILTER_SIZE) sz = dm.depth(k,l);
-			
-			//get neighbors
-		 	std::vector<IndexPair> neighs = neighbors(mia, k, l, sz, sz); 
-			
-			std::vector<double> depths; depths.reserve(neighs.size()+1);
-			depths.emplace_back(dm.depth(k,l));
-			
-			for(auto&n : neighs) depths.emplace_back(dm.depth(n.k, n.l));
+		const std::size_t kmax = dm.width()-margin; 
+		const std::size_t kmin = 0+margin;
+		const std::size_t lmax = dm.height()-margin; 
+		const std::size_t lmin = 0+margin;
 		
-			filtereddm.depth(k,l) = median(depths);
+		for(std::size_t k = kmin; k < kmax; ++k)
+		{
+			for(std::size_t l = lmin; l < lmax; ++l)
+			{
+				double sz = size;
+				if (size == AUTOMATIC_FILTER_SIZE) sz = dm.depth(k,l);
+				
+				//get neighbors
+			 	std::vector<IndexPair> neighs = neighbors(mia, k, l, sz, sz); 
+				
+				std::vector<double> depths; depths.reserve(neighs.size()+1);
+				depths.emplace_back(dm.depth(k,l));
+				
+				for(auto&n : neighs) depths.emplace_back(dm.depth(n.k, n.l));
+			
+				filtereddm.depth(k,l) = median(depths);
+			}
 		}
+	}
+	else if (dm.is_refined_map())
+	{
+		const std::size_t kmax = dm.width()-margin; 
+		const std::size_t kmin = 0+margin;
+		const std::size_t lmax = dm.height()-margin; 
+		const std::size_t lmin = 0+margin;
+		
+		for(std::size_t k = kmin; k < kmax; ++k)
+		{
+			for(std::size_t l = lmin; l < lmax; ++l)
+			{				
+				const std::size_t sz = static_cast<std::size_t>(size == AUTOMATIC_FILTER_SIZE ? 2. : size);
+				
+				//get neighbors				
+				std::vector<double> depths; depths.reserve((sz * 2 + 1) * (sz * 2 + 1));
+				
+				for (std::size_t u = std::max(kmin, k - sz); u < std::min(kmax, k + sz); ++u)
+				{
+					for (std::size_t v = std::max(lmin, l - sz); v < std::min(lmax, l + sz); ++v)
+					{
+						if (double depth = dm.depth(u,v); depth != DepthInfo::NO_DEPTH)
+							depths.emplace_back(dm.depth(u,v));
+					}
+				}
+							
+				filtereddm.depth(k,l) = median(depths);
+			}
+		}
+	
 	}
 	
 	return filtereddm;	
 }
 void inplace_median_filter_depth(RawDepthMap& dm, const MIA& mia, double size)
-{
-	DEBUG_ASSERT((dm.is_coarse_map()), "No filter implemented for dense map.");
-	
+{	
 	const RawDepthMap temp = median_filter_depth(dm, mia, size);
 	temp.copy_to(dm);
 } 

@@ -15,9 +15,10 @@
 
 #include <pleno/processing/tools/functions.h>
 
+template <typename FunctionType>
 struct ScalingCostError
 {		
-	using ErrorType = Eigen::Matrix<double, 1, 1>; //mae
+	using ErrorType = Eigen::Matrix<double, 1, 1>; //mbe
 	
 	const PlenopticCamera& mfpc;
 	const CheckerBoard& scene;
@@ -33,15 +34,25 @@ struct ScalingCostError
     );
 
     bool operator()( 
-    	const LinearFunction& f,
+    	const FunctionType& f,
     	ErrorType& error
     ) const;
 };
+
+using LinearScalingCostError 	= ScalingCostError<LinearFunction>;
+using QuadraticScalingCostError = ScalingCostError<QuadraticFunction>;
+
 namespace ttt
 {
 	template<> 
-	struct Name<ScalingCostError> 
+	struct Name<LinearScalingCostError> 
 	{ 
-		static std::string name(){ return "ScalingCostError"; } 
+		static std::string name(){ return "LinearScalingCostError"; } 
+	};
+	
+	template<> 
+	struct Name<QuadraticScalingCostError> 
+	{ 
+		static std::string name(){ return "QuadraticScalingCostError"; } 
 	};
 } // namespace ttt

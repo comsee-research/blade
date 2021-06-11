@@ -26,7 +26,8 @@ void estimate_depth(
 	RawDepthMap& depthmap,
 	const PlenopticCamera& mfpc,
 	const Image& img,
-	const DepthEstimationStrategy& strategies
+	const DepthEstimationStrategy& strategies,
+	const Image& color
 )
 {	
 	std::string ss = "";
@@ -161,13 +162,16 @@ void estimate_depth(
 	PRINT_DEBUG("Estimated metric depth = "<< reduce(mdm));
 	
 	PRINT_INFO("=== Converting to pointcloud...");
-	PointCloud pc = to_pointcloud(mdm, mfpc, img);
+	inplace_median_filter_depth(mdm, mfpc.mia(), mdm.is_coarse_map() ? 3. : 2.);
+	PointCloud pc = to_pointcloud(mdm, mfpc, color);
 	
 	PRINT_INFO("=== Conversion finished! Displaying pointcloud (" << pc.size() << ")...");	
 	display(mfpc);
 	display(0, pc);	
-	
+
+GUI(
 	wait();
+);
 }
 
 //******************************************************************************

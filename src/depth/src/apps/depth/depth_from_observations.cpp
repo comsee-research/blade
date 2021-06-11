@@ -118,13 +118,13 @@ int main(int argc, char* argv[])
 	PRINT_WARN("4) Starting Blur Aware depth estimation");
 	PRINT_WARN("\t4.1) Devignetting images");
 			
-	std::vector<Image> pictures;
-	pictures.reserve(images.size());
-	
+	IndexedImages pictures;
+	IndexedImages cpictures;
+		
 	std::transform(
 		images.begin(), images.end(),
-		std::back_inserter(pictures),
-		[&mask, &imgformat](const auto& iwi) -> Image { 
+		std::inserter(pictures, pictures.end()),
+		[&mask, &imgformat, &cpictures](const auto& iwi) -> auto { 
 			Image unvignetted;
 			
 			if (imgformat == 8u) devignetting(iwi.img, mask, unvignetted);
@@ -132,7 +132,9 @@ int main(int argc, char* argv[])
 			
     		Image img = Image::zeros(unvignetted.rows, unvignetted.cols, CV_8UC1);
 			cv::cvtColor(unvignetted, img, cv::COLOR_BGR2GRAY);
-			return img; 
+			
+			cpictures[iwi.frame] = std::move(unvignetted); //save color images
+			return std::make_pair(iwi.frame, img); 
 		}	
 	);	
 	
@@ -143,8 +145,12 @@ int main(int argc, char* argv[])
 		obs[ob.frame].push_back(ob);	
 	
 	//for each frame
+	int cindex = 0;
 	for (auto & [frame, baps]: obs)
 	{ 	
+		try { pictures.at(frame); }
+		catch (std::out_of_range&) { continue; }
+		
 		PRINT_INFO("=== Estimate depth from observations at frame = " << frame);	
 		const auto [mind, maxd] = initialize_min_max_distance(mfpc);
 		RawDepthMap dm{mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};

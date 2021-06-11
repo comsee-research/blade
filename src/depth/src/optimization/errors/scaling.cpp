@@ -5,7 +5,8 @@
 
 #include <pleno/processing/tools/error.h>
 
-ScalingCostError::ScalingCostError(
+template <typename FunctionType>
+ScalingCostError<FunctionType>::ScalingCostError(
 	const PlenopticCamera& mfpc_,
 	const CheckerBoard& scene_, 
 	const RawDepthMap& dm_,
@@ -16,14 +17,16 @@ ScalingCostError::ScalingCostError(
 	for(const auto& ob : observations) clusters[ob.cluster].push_back(ob);	
 }
 
-bool ScalingCostError::operator()( 
-	const LinearFunction& f,
+template <typename FunctionType>
+bool ScalingCostError<FunctionType>::operator()( 
+	const FunctionType& f,
 	ErrorType& error
 ) const
 {
 	error.setZero();
 	
 	MAE mae{0., 0u};
+	MBE mbe{0., 0u};
 	RMSE rmse{0., 0u};
 		
 	std::map<Index /* cluster index */, P3D> centroids; 
@@ -71,8 +74,11 @@ bool ScalingCostError::operator()(
 			}			
 		}
 		
-		if (n != 0.) centroid /= n;
-		centroids[cluster] = std::move(centroid);					
+		if (n != 0.) 
+		{
+			centroid /= n;
+			centroids[cluster] = std::move(centroid);	
+		}				
 	}
 
 	//compute distances and errors	
@@ -85,10 +91,14 @@ bool ScalingCostError::operator()(
 			
 			mae.add(100. * (ref-dist) / ref);
 			rmse.add(100. * (ref-dist) / ref);	
+			mbe.add(100. * (ref-dist) / ref);
 		}
 	}	
 	
-	error << rmse.get(); //mae.sum(); //rmse.get(); //
+	error << mbe.get(); //mae.sum(); //rmse.get(); //
 	
 	return true;
 }
+
+template struct ScalingCostError<LinearFunction>;
+template struct ScalingCostError<QuadraticFunction>;

@@ -1,8 +1,19 @@
-#include "eval.h"
+#pragma once
 
 #include <iostream>
 #include <map>
 #include <unistd.h>
+#include <unordered_map>
+
+#include <pleno/types.h>
+
+//geometry
+#include <pleno/geometry/camera/plenoptic.h>
+#include <pleno/geometry/object/checkerboard.h>
+#include <pleno/geometry/observation.h>
+#include "geometry/depth/RawDepthMap.h"
+
+#include "processing/tools/functions.h"
 
 #include <pleno/graphic/gui.h>
 #include <pleno/graphic/viewer_2d.h>
@@ -18,16 +29,18 @@
 #include <pleno/processing/tools/error.h>
 
 void evaluate_scale_error(
-	const PlenopticCamera& mfpc, const CheckerBoard& scene,
+	const PlenopticCamera& mfpc, const auto& scaling,
+	const CheckerBoard& scene,
 	const std::unordered_map<Index, RawDepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations,
 	const std::unordered_map<Index, Image>& pictures
 ) 
 {
+	constexpr double epsilon = 1e-3;
 	v::Palette<int> palette;
 	
 	std::ofstream ofs(
-		"scale-error-" + std::to_string(getpid())+".csv"
+		"rescaled-error-" + std::to_string(getpid())+".csv"
 	); 
 	if (not ofs.good()) throw std::runtime_error(std::string("Cannot open file scale-error.csv"));
 	
@@ -87,8 +100,10 @@ GUI(
 				
 				//get depth
 				double depth = dm.is_refined_map() ? dm.depth(u,v) : dm.depth(ob.k, ob.l);
-				if (depth == DepthInfo::NO_DEPTH) continue;
+				if (std::fabs(depth) < DepthInfo::NO_DEPTH + epsilon) continue;
 				if (dm.is_virtual_depth()) depth = mfpc.v2obj(depth, ob.k, ob.l);				
+				
+				depth = scaling(depth);
 				
 				//get pixel
 				const P2D pixel = P2D{ob.u, ob.v};
@@ -111,13 +126,13 @@ GUI(
 				}			
 			}
 			
-			if (n != 0.)
+			if (n != 0.) 
 			{
 				centroid /= n;
-			
+				
 				PRINT_DEBUG("Frame ("<< frame <<"), node ("<< cluster<<") = " << scene.node(cluster).transpose() << ", centroid = " << centroid.transpose());
-				centroids[cluster] = std::move(centroid);		
-			}			
+				centroids[cluster] = std::move(centroid);	
+			}				
 		}
 		
 		wait();		
@@ -157,8 +172,8 @@ GUI(
 				
 				DEBUG_VAR(ref); DEBUG_VAR(dist);
 				rmse.add(100. * (ref-dist) / ref);		
-				mae.add(100. * (ref-dist) / ref);		
-				mbe.add(100. * (ref-dist) / ref);					
+				mae.add(100. * (ref-dist) / ref);	
+				mbe.add(100. * (ref-dist) / ref);						
 			}
 		}
 		
@@ -167,7 +182,7 @@ GUI(
 			const double z = std::accumulate(centroids.cbegin(), centroids.cend(), 0., 
 					[](double tz, const auto& c) { return tz + c.second.z(); }
 				) / centroids.size();
-			
+				
 			oss << frame << "," << mfpc.obj2v(z) << "," << z << "," << mae.get() << "," << mbe.get() << "," << rmse.get() << "\n";			
 			
 GUI(	
@@ -179,7 +194,7 @@ GUI(
 		else
 		{
 			PRINT_WARN("Can't compute error for frame ("<< frame << ")");
-		}				
+		}			
 		
 		wait();	
 	}

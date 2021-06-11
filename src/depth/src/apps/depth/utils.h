@@ -17,6 +17,9 @@ struct Config_t {
 		std::string strategy;
 		std::string dm;
 	} path;
+	
+	bool save_all;
+	bool run_all;
 };
 
 Config_t parse_args(int argc, char *argv[]);

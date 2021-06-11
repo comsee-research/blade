@@ -17,6 +17,9 @@ struct DepthEstimationStrategy {
 	RawDepthMap::DepthType	dtype		= RawDepthMap::DepthType::VIRTUAL;
 	RawDepthMap::MapType	mtype		= RawDepthMap::MapType::COARSE;
 	
+	double vmin							= 2.;
+	double vmax							= 20.;
+	
 	InitStrategy init 					= InitStrategy::REGULAR_GRID;
 	bool randomize						= false;
 	

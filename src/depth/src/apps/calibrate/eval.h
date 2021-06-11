@@ -20,9 +20,12 @@ void evaluate_scale_error(
 );
 
 void evaluate_scale_error(
-	const PlenopticCamera& mfpc, const LinearFunction& scaling,
+	const PlenopticCamera& mfpc, const auto& scaling,
 	const CheckerBoard& scene,
 	const std::unordered_map<Index, RawDepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations,
 	const std::unordered_map<Index, Image>& pictures
 );
+
+#include "eval.hpp"
+

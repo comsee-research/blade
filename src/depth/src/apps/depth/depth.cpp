@@ -106,21 +106,23 @@ int main(int argc, char* argv[])
 	PRINT_WARN("3) Starting Blur Aware depth estimation");
 	PRINT_WARN("\t3.1) Devignetting images");
 			
-	std::vector<Image> pictures;
-	pictures.reserve(images.size());
-	
+	IndexedImages pictures;
+	IndexedImages cpictures;
+		
 	std::transform(
 		images.begin(), images.end(),
-		std::back_inserter(pictures),
-		[&mask, &imgformat](const auto& iwi) -> Image { 
+		std::inserter(pictures, pictures.end()),
+		[&mask, &imgformat, &cpictures](const auto& iwi) -> auto { 
 			Image unvignetted;
 			
 			if (imgformat == 8u) devignetting(iwi.img, mask, unvignetted);
 			else /* if (imgformat == 16u) */ devignetting_u16(iwi.img, mask, unvignetted);
-			
+						
     		Image img = Image::zeros(unvignetted.rows, unvignetted.cols, CV_8UC1);
 			cv::cvtColor(unvignetted, img, cv::COLOR_BGR2GRAY);
-			return img; 
+			
+			cpictures[iwi.frame] = std::move(unvignetted); //save color images
+			return std::make_pair(iwi.frame, img); 
 		}	
 	);	
 	
@@ -133,15 +135,15 @@ int main(int argc, char* argv[])
 	PRINT_WARN("\t3.3) Estimate depthmaps");	
 	const auto [mind, maxd] = initialize_min_max_distance(mfpc);
 	const double dmin = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
-			2. /* mfpc.obj2v(maxd) */
-		: 	std::max(mfpc.v2obj(15.), mind);
+			strategies.vmin /* mfpc.obj2v(maxd) */
+		: 	std::max(mfpc.v2obj(strategies.vmax), mind);
 	
 	const double dmax = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
-			20. /* mfpc.obj2v(mind) */
-		: 	std::min(mfpc.v2obj(2.), maxd);
-	
-	
-	for (std::size_t frame = 0; frame < pictures.size(); ++frame)
+			strategies.vmax /* mfpc.obj2v(mind) */
+		: 	std::min(mfpc.v2obj(strategies.vmin), maxd);
+		
+	//for (std::size_t frame = 0; frame < pictures.size(); ++frame)
+	for (const auto& [frame, picture] : pictures)
 	{
 		PRINT_INFO("=== Estimate depth of frame = " << frame);	
 		RawDepthMap dm{
@@ -149,9 +151,9 @@ int main(int argc, char* argv[])
 			strategies.dtype, strategies.mtype
 		};
 	
-		estimate_depth(dm, mfpc, pictures[frame], strategies);
+		estimate_depth(dm, mfpc, picture, strategies, cpictures[frame]);
 		
-		if (save())
+		if (config.save_all or save())
 		{
 			PRINT_INFO("=== Saving depthmap...");
 			{
@@ -172,7 +174,7 @@ int main(int argc, char* argv[])
 			{
 				PointCloud pc = [&]() -> PointCloud {
 					RawDepthMap mdm = dm.to_metric(mfpc);
-					return to_pointcloud(mdm, mfpc, pictures[frame]);
+					return to_pointcloud(mdm, mfpc, cpictures[frame]); //picture);
 				}();
 				
 				std::ostringstream name; 
@@ -190,7 +192,7 @@ int main(int argc, char* argv[])
 			}		
 		}
 		
-		if ((frame < pictures.size()-1) and finished()) break;
+		if (not(config.run_all) and finished()) break;
 		clear();
 	}
 	

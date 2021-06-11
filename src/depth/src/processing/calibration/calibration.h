@@ -1,5 +1,7 @@
 #pragma once
 
+#include <type_traits>
+
 #include <pleno/processing/calibration/calibration.h>
 
 #include <pleno/geometry/camera/plenoptic.h>
@@ -14,9 +16,12 @@
 //******************************************************************************
 //******************************************************************************
 void calibration_depthScaling(                        
-	LinearFunction& scaling, /* out */      
+	auto& scaling,  
 	const PlenopticCamera& mfpc, const CheckerBoard& scene,
 	const std::unordered_map<Index, RawDepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations
 );
+
+#include "scaling.hpp"
+
 

@@ -27,7 +27,8 @@ void estimate_depth(
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const DepthEstimationStrategy& strategies,
-	const Image& color
+	const Image& color,
+	bool gui
 )
 {	
 	std::string ss = "";
@@ -113,65 +114,68 @@ void estimate_depth(
 	};
 
 	dm.copy_to(depthmap);
-	display(depthmap, mfpc);	
-//------------------------------------------------------------------------------	
-#if 0
-	// Filtered depth map
-	PRINT_INFO("=== Filtering depth map...");	
-#if 0
-	inplace_minmax_filter_depth(dm, 2., 15.);	
-	RawDepthMap filtereddm = median_filter_depth(dm, 4.1);
-	PRINT_INFO("=== Filtering finished! Displaying depth map...");
-	display(filtereddm);
-#else
-	RawDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
+	if (gui)
+	{
+		display(depthmap, mfpc);	
+	//------------------------------------------------------------------------------	
 	#if 0
-		const RawDepthMap edm = morph_erosion_filter_depth(filtereddm);
-		const RawDepthMap ddm = morph_dilation_filter_depth(filtereddm);
-		const RawDepthMap odm = morph_opening_filter_depth(filtereddm);
-		const RawDepthMap cdm = morph_closing_filter_depth(filtereddm);
-		const RawDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
-		const RawDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
-		const RawDepthMap tetdm = morph_tet_filter_depth(filtereddm);
-		const RawDepthMap occodm = morph_occo_filter_depth(filtereddm);
+		// Filtered depth map
+		PRINT_INFO("=== Filtering depth map...");	
+	#if 0
+		inplace_minmax_filter_depth(dm, 2., 15.);	
+		RawDepthMap filtereddm = median_filter_depth(dm, 4.1);
+		PRINT_INFO("=== Filtering finished! Displaying depth map...");
+		display(filtereddm);
+	#else
+		RawDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
+		#if 0
+			const RawDepthMap edm = morph_erosion_filter_depth(filtereddm);
+			const RawDepthMap ddm = morph_dilation_filter_depth(filtereddm);
+			const RawDepthMap odm = morph_opening_filter_depth(filtereddm);
+			const RawDepthMap cdm = morph_closing_filter_depth(filtereddm);
+			const RawDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
+			const RawDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
+			const RawDepthMap tetdm = morph_tet_filter_depth(filtereddm);
+			const RawDepthMap occodm = morph_occo_filter_depth(filtereddm);
+		#endif
+		PRINT_INFO("=== Filtering finished! Displaying depth map...");
+		display(filtereddm);
+		#if 0
+			display(edm);
+			display(ddm);
+			display(odm);
+			display(cdm);
+			display(sdm);
+			display(dytdm);
+			display(tetdm);
+			display(occodm);
+			
+			wait();
+		#endif
 	#endif
-	PRINT_INFO("=== Filtering finished! Displaying depth map...");
-	display(filtereddm);
-	#if 0
-		display(edm);
-		display(ddm);
-		display(odm);
-		display(cdm);
-		display(sdm);
-		display(dytdm);
-		display(tetdm);
-		display(occodm);
+		#endif
+	//------------------------------------------------------------------------------	
+		// Convert to metric depth map
+		PRINT_INFO("=== Converting depth map...");	
+		RawDepthMap mdm = dm.to_metric(mfpc);
+		PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
+		display(mdm, mfpc);	
 		
-		wait();
-	#endif
-#endif
-	#endif
-//------------------------------------------------------------------------------	
-	// Convert to metric depth map
-	PRINT_INFO("=== Converting depth map...");	
-	RawDepthMap mdm = dm.to_metric(mfpc);
-	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
-	display(mdm, mfpc);	
-	
-	PRINT_DEBUG("Estimated virtual depth = "<< reduce(dm));
-	PRINT_DEBUG("Estimated metric depth = "<< reduce(mdm));
-	
-	PRINT_INFO("=== Converting to pointcloud...");
-	inplace_median_filter_depth(mdm, mfpc.mia(), mdm.is_coarse_map() ? 3. : 2.);
-	PointCloud pc = to_pointcloud(mdm, mfpc, color);
-	
-	PRINT_INFO("=== Conversion finished! Displaying pointcloud (" << pc.size() << ")...");	
-	display(mfpc);
-	display(0, pc);	
+		PRINT_WARN("Estimated virtual depth = "<< reduce(dm));
+		PRINT_WARN("Estimated metric depth = "<< reduce(mdm));
+		
+		PRINT_INFO("=== Converting to pointcloud...");
+		//inplace_median_filter_depth(mdm, mfpc.mia(), mdm.is_coarse_map() ? 3. : 2.);
+		PointCloud pc = to_pointcloud(mdm, mfpc, color);
+		
+		PRINT_INFO("=== Conversion finished! Displaying pointcloud (" << pc.size() << ")...");	
+		display(mfpc);
+		display(0, pc);	
 
-GUI(
-	wait();
-);
+	GUI(
+		wait();
+	);
+	}
 }
 
 //******************************************************************************
@@ -181,7 +185,8 @@ void estimate_depth_from_obs(
 	RawDepthMap& depthmap,
 	const PlenopticCamera& mfpc,
 	const Image& img,
-	const BAPObservations& observations /*  (u,v,rho) */
+	const BAPObservations& observations, /*  (u,v,rho) */
+	bool gui
 )
 {	
 	PRINT_INFO("=== Start depth estimation from observations");	
@@ -207,16 +212,18 @@ void estimate_depth_from_obs(
 	const double computational_time = std::chrono::duration<double>(t_end-t_start).count();
 	
 	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
-	display(dm, mfpc);
-	
-//------------------------------------------------------------------------------	
-	// Convert to metric depth map
-	PRINT_INFO("=== Converting depth map...");	
-	RawDepthMap mdm = dm.to_metric(mfpc);
-	PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
-	display(mdm, mfpc);	
-	
-	wait();
-	
+	if (gui)
+	{
+		display(dm, mfpc);
+		
+	//------------------------------------------------------------------------------	
+		// Convert to metric depth map
+		PRINT_INFO("=== Converting depth map...");	
+		RawDepthMap mdm = dm.to_metric(mfpc);
+		PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
+		display(mdm, mfpc);	
+		
+		wait();
+	}
 	dm.copy_to(depthmap);
 }

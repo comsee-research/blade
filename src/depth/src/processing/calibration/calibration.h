@@ -6,11 +6,24 @@
 
 #include <pleno/geometry/camera/plenoptic.h>
 #include <pleno/geometry/object/checkerboard.h>
+#include <pleno/geometry/object/constellation.h>
 #include <pleno/geometry/observation.h>
 
 #include "geometry/depth/RawDepthMap.h"
 
 #include <pleno/processing/tools/functions.h>
+
+
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+void calibration_LidarPlenopticCamera(                        
+	CalibrationPose& pose, /* out */                   
+	const PlenopticCamera& model, /* in */   
+	const PointsConstellation& constellation,
+	const BAPObservations& observations, /* (u,v,rho?) */
+	const Image& scene
+);
 
 //******************************************************************************
 //******************************************************************************

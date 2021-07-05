@@ -58,13 +58,15 @@ void estimate_depth(
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const DepthEstimationStrategy& strategies,
-	const Image& color
+	const Image& color, 
+	bool gui = true
 );
 
 void estimate_depth_from_obs(
 	RawDepthMap& dm,
 	const PlenopticCamera& mfpc,
 	const Image& img,
-	const BAPObservations& observations/*  (u,v,rho) */
+	const BAPObservations& observations,/*  (u,v,rho) */
+	bool gui = true
 );
 

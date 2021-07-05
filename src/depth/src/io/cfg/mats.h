@@ -10,5 +10,5 @@ V_DEFINE_PROPERTIES(MatConfig)
 
 V_DEFINE_PROPERTIES(MatsConfig)
 (    
-    V_DEFINE_PROPERTY(mats, std::vector<XYZConfig>(0), "Poses to load")
+    V_DEFINE_PROPERTY(mats, std::vector<MatConfig>(0), "Poses to load (.mat)")
 )

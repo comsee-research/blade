@@ -78,6 +78,17 @@ public:
 		pixels().pop_back();
 		colors().pop_back();		
 	}
+	
+//transform
+	void transform(const Pose& pose) 
+	{
+		//for each point apply transformation
+		for(P3D& p : features())
+		{
+			const P3D temp = from_coordinate_system_of(pose, p);
+			p = temp;		
+		}
+	}
 
 protected:
 	//******************************************************************************

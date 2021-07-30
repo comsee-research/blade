@@ -7,18 +7,18 @@
 #include <pleno/geometry/plane.h>
 #include <pleno/geometry/ray.h>
 
-#include "geometry/depth/RawDepthMap.h"
-#include "geometry/depth/PointCloud.h"
-#include "geometry/depth/convert.h"
+#include "geometry/depth/depthmap.h"
+#include "geometry/depth/pointcloud.h"
+#include "geometry/depth/depthimage.h"
 
 #include "types.h"
 
-inline void display(const RawDepthMap& dm, const PlenopticCamera& pcm)
+inline void display(const DepthMap& dm, const PlenopticCamera& pcm)
 {
 GUI(	
 	std::string ss = (dm.is_virtual_depth()?"":"Metric ");
 	
-	const DepthMapImage dmi = to_image(dm, pcm);
+	const DepthMapImage dmi = DepthMapImage{dm, pcm};
 	
 	Image idm; cv::cvtColor(dmi.image, idm, CV_BGR2RGB);
 	RENDER_DEBUG_2D(
@@ -120,5 +120,97 @@ GUI(
 		plane
 	);
 	Viewer::update(Viewer::Mode::m3D);
+);
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+template<typename Observations>
+inline void display(
+	const PlenopticCamera& mfpc,
+	const CalibrationPose& pose,
+	const PointsConstellation& constellation,
+	const Observations& obs,
+	const Image& picture
+)
+{	
+GUI(
+	auto model = mfpc;
+	
+	display(constellation); display(pose);
+	
+	v::Palette<int> palette;
+	
+	PRINT_DEBUG("Display information of frame");
+		
+	//model.pose() = pose.pose;
+	display(model);
+
+	RENDER_DEBUG_2D(
+		Viewer::context().layer(Viewer::layer()).name("Frame"), 
+		picture
+	);
+	
+	Viewer::update();
+	
+	//get theorical reprojection
+	Observations tbaps; int cluster = 0;
+	for (const auto& pw : constellation)
+	{
+		const P3D pc = to_coordinate_system_of(pose.pose, pw); // CAMERA
+		
+		Observations temp;
+		mfpc.project(pc, temp);
+		for (auto& o : temp) { o.cluster = cluster; }
+		
+		tbaps.insert(tbaps.end(), std::make_move_iterator(temp.begin()), std::make_move_iterator(temp.end()));
+		++cluster;
+	}
+	
+//For each ob
+	const Viewer::Layer layer = Viewer::layer();
+	for (const auto& o : obs)
+	{					
+		RENDER_DEBUG_2D(
+  			Viewer::context().layer(layer)
+  				.name("BAP")
+  				.point_style(v::Round)
+  				.pen_color(palette[o.cluster]).pen_width(2),
+  			Disk{o[0], o[1], (std::is_same_v<Observations, BAPObservations>?o[2]:0.0)}
+		);
+		
+		const P3D pc = to_coordinate_system_of(pose.pose, constellation.get(o.cluster));
+	
+		P2D corner; model.project(pc, o.k, o.l, corner);
+		double radius = 0.;
+		if (mfpc.focused() and std::is_same_v<Observations, BAPObservations>) model.project(pc, o.k, o.l, radius);
+
+		RENDER_DEBUG_2D(
+  			Viewer::context().layer(layer+1)
+  				.name("Reprojected BAP")
+				.point_style(v::Cross)
+  				.pen_color(palette[o.cluster+1]).pen_width(2),
+  			Disk{corner, radius}
+		);
+	}
+		
+	Viewer::update();
+	Viewer::update();
+	
+	for (const auto& o : tbaps)
+	{
+		RENDER_DEBUG_2D(
+  			Viewer::context().layer(Viewer::layer())
+  				.name("Theorical BAP")
+  				.point_style(v::Cross)
+  				.pen_style(v::DashLine)
+  				.pen_color(palette[o.cluster]).pen_width(2),
+  			Disk{o[0], o[1], (std::is_same_v<Observations, BAPObservations>?o[2]:0.0)}
+		);
+	}
+
+	Viewer::context().point_style(v::Pixel).pen_style(v::SolidLine); //restore point style
+	Viewer::update();
 );
 }

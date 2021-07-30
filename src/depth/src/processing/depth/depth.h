@@ -6,7 +6,7 @@
 #include <pleno/geometry/camera/plenoptic.h>
 #include <pleno/geometry/observation.h>
 
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 #include "strategy.h"
 
@@ -51,10 +51,10 @@ struct DepthHypothesis {
 //******************************************************************************
 //******************************************************************************
 struct DepthEstimationStrategy;
-struct RawDepthMap;
+struct DepthMap;
 
 void estimate_depth(
-	RawDepthMap& dm,
+	DepthMap& dm,
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const DepthEstimationStrategy& strategies,
@@ -63,7 +63,7 @@ void estimate_depth(
 );
 
 void estimate_depth_from_obs(
-	RawDepthMap& dm,
+	DepthMap& dm,
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const BAPObservations& observations,/*  (u,v,rho) */

@@ -9,6 +9,10 @@
 #include <pleno/geometry/camera/plenoptic.h>
 #include <pleno/geometry/mia.h>
 
+#include "geometry/depth/pointcloud.h"
+
+class PointCloud;
+
 struct DepthInfo {
 	static constexpr double NO_DEPTH = 0.;
 	static constexpr double NO_CONFIDENCE = -1.;
@@ -28,7 +32,7 @@ void load(v::InputArchive& archive, DepthInfo& di);
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
-class RawDepthMap {
+class DepthMap {
 public:	
 	using DepthMapContainer = Eigen::Matrix<DepthInfo, Eigen::Dynamic /* row */, Eigen::Dynamic /* col */>;
 	
@@ -43,14 +47,19 @@ private:
 	
 	DepthType depth_type;
 	MapType map_type;
-
-	cv::Mat colormap;
 		
 public:
 //******************************************************************************
-	RawDepthMap(const PlenopticCamera& pcm, double mind = 2., double maxd = 15., DepthType dtype = VIRTUAL, MapType mtype = COARSE);
-	RawDepthMap(const RawDepthMap& o);
-	RawDepthMap(RawDepthMap&& o);
+	DepthMap(
+		std::size_t width = 0u, std::size_t height = 0u, 
+		double mind = 2., double maxd = 15., 
+		DepthType dtype = VIRTUAL, MapType mtype = COARSE
+	);
+	
+	DepthMap(const DepthMap& o);
+	DepthMap(DepthMap&& o);
+	
+	DepthMap(const PointCloud& pc, const PlenopticCamera& mfpc);
 
 //******************************************************************************	
 	std::size_t width() const;
@@ -74,8 +83,8 @@ public:
 	double max_depth() const;
 	void max_depth(double maxd);
 	
-	void copy_from(const RawDepthMap& o);
-	void copy_to(RawDepthMap& o) const;
+	void copy_from(const DepthMap& o);
+	void copy_to(DepthMap& o) const;
 	
 //******************************************************************************	
 	bool is_virtual_depth() const;
@@ -88,8 +97,8 @@ public:
 	bool is_refined_map() const;
 	
 //******************************************************************************	
-	RawDepthMap to_metric(const PlenopticCamera& pcm) const;
-	RawDepthMap to_virtual(const PlenopticCamera& pcm) const;
+	DepthMap to_metric(const PlenopticCamera& pcm) const;
+	DepthMap to_virtual(const PlenopticCamera& pcm) const;
 
 protected:
 //******************************************************************************
@@ -97,9 +106,9 @@ protected:
 	bool is_disparity_estimation_possible(double d) const;	
 	
 //******************************************************************************
-	friend void save(v::OutputArchive& archive, const RawDepthMap& dm);
-	friend void load(v::InputArchive& archive, RawDepthMap& dm);		
+	friend void save(v::OutputArchive& archive, const DepthMap& dm);
+	friend void load(v::InputArchive& archive, DepthMap& dm);		
 };
 
-void save(v::OutputArchive& archive, const RawDepthMap& dm);
-void load(v::InputArchive& archive, RawDepthMap& dm);
+void save(v::OutputArchive& archive, const DepthMap& dm);
+void load(v::InputArchive& archive, DepthMap& dm);

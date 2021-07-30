@@ -7,13 +7,13 @@
 #include "../../types.h"
 #include "strategy.h"
 
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 //******************************************************************************
 //******************************************************************************
 //******************************************************************************
 void compute_depthmap(
-	RawDepthMap& dm, 
+	DepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
 	const DepthEstimationStrategy& strategies
@@ -23,7 +23,7 @@ void compute_depthmap(
 //******************************************************************************
 //******************************************************************************
 void compute_refined_depthmap(
-	RawDepthMap& dm, 
+	DepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
 	const DepthEstimationStrategy& strategies
@@ -33,7 +33,7 @@ void compute_refined_depthmap(
 //******************************************************************************
 //******************************************************************************
 void compute_probabilistic_depthmap(
-	RawDepthMap& dm,
+	DepthMap& dm,
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
 	const DepthEstimationStrategy& strategies
@@ -43,7 +43,7 @@ void compute_probabilistic_depthmap(
 //******************************************************************************
 //******************************************************************************
 void compute_depthmap_from_obs(
-	RawDepthMap& dm, 
+	DepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	const BAPObservations& observations
 );

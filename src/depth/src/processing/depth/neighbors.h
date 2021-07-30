@@ -22,7 +22,7 @@ std::map<double, std::vector<IndexPair>> neighbors_by_rings(
 );
 
 std::vector<IndexPair> pixels_neighbors(
-	const MIA& mia, const Sensor& sensor, std::size_t k, std::size_t l
+	const MIA& mia, std::size_t W, std::size_t H, std::size_t k, std::size_t l
 );
 
 #if 1

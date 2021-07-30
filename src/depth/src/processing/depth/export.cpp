@@ -386,7 +386,7 @@ void export_cost_function_from_obs(
 //******************************************************************************
 //******************************************************************************
 void export_depth_histogram(
-	const RawDepthMap& dm, bool lighten 
+	const DepthMap& dm, bool lighten 
 ) 
 {
 	std::string type =  (dm.is_virtual_depth() ? "virtual-" : "metric-");

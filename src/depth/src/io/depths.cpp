@@ -1,4 +1,8 @@
-#include "load.h"
+#include "depths.h"
+
+#include <iostream>
+
+#include <pleno/io/printer.h>
 
 #include "processing/depth/initialization.h"
 
@@ -87,6 +91,38 @@ Pose read_mat(std::string path)
 
 	return pose;
 }
+//******************************************************************************
+PointCloud read_pts(std::string path)
+{
+	std::ifstream ifs(path);
+	PRINT_DEBUG("Open file = " << path);
+	
+    std::size_t count;
+    ifs >> count;
+    ifs.ignore(1, '\n');
+    DEBUG_VAR(count);
+    
+    PointCloud pts{count};
+    
+    for(std::size_t i = 0; i < count; i++)
+    {
+        std::string line;
+        if(!std::getline(ifs, line)) {PRINT_ERR("("<<i << ") no line"); break; }
+        
+        //DEBUG_VAR(line);
+        std::istringstream iss(line);
+		
+		double x = 0., y = 0., z = 0., a = 0., r = 0., g = 0., b = 0.;
+
+        iss >> x >> y >> z >> a >> r >> g >> b;
+        
+        pts.add(P3D{1000. * x, 1000. * y, 1000. * z}, P2D{-1, -1}, RGBA{r, g, b, 255.});    
+        iss.clear(); 
+    }	
+    
+    ifs.close();
+	return pts;
+}
 
 //******************************************************************************
 //******************************************************************************
@@ -94,9 +130,21 @@ Pose read_mat(std::string path)
 std::map<Index, XYZs> load(const XYZsConfig& config)
 {
 	std::map<Index, XYZs> maps;
-	for (auto & xyz_cfg : config.xyzs())
+	for (auto & xyz_cfg : config)
 	{
 		maps.emplace(xyz_cfg.frame(), read_xyz(xyz_cfg.path()));	
+	}
+	
+	return maps;
+}
+
+//******************************************************************************
+std::map<Index, PointCloud> load(const PTSsConfig& config)
+{
+	std::map<Index, PointCloud> maps;
+	for (auto &pts_cfg : config)
+	{
+		maps.emplace(pts_cfg.frame(), read_pts(pts_cfg.path()));	
 	}
 	
 	return maps;
@@ -107,7 +155,7 @@ std::map<Index, PointCloud> load(const PointCloudsConfig& config)
 {
 	std::map<Index, PointCloud> maps;
 	
-	for (auto & pc_cfg : config.pointclouds())
+	for (auto & pc_cfg : config)
 	{	
 		PointCloud pc;
 		v::load(pc_cfg.path(), v::make_serializable(&pc));
@@ -123,7 +171,7 @@ std::map<Index, Plane> load(const PlanesConfig& config)
 {
 	std::map<Index, Plane> maps;
 	
-	for (const auto & plane_cfg : config.planes())
+	for (const auto & plane_cfg : config)
 	{	
 		Plane plane;
 		v::load(plane_cfg.path(), v::make_serializable(&plane));
@@ -135,13 +183,13 @@ std::map<Index, Plane> load(const PlanesConfig& config)
 }
 
 //******************************************************************************
-std::map<Index, RawDepthMap> load(const DepthMapsConfig& config, const PlenopticCamera& mfpc)
+std::map<Index, DepthMap> load(const DepthMapsConfig& config)
 {
-	std::map<Index, RawDepthMap> maps;
+	std::map<Index, DepthMap> maps;
 	
-	for (auto & dm_cfg : config.maps())
+	for (auto & dm_cfg : config)
 	{	
-		RawDepthMap dm{mfpc};
+		DepthMap dm;
 		v::load(dm_cfg.path(), v::make_serializable(&dm));
 		
 		maps.emplace(dm_cfg.frame(), std::move(dm));
@@ -151,9 +199,9 @@ std::map<Index, RawDepthMap> load(const DepthMapsConfig& config, const Plenoptic
 }
 
 //******************************************************************************
-std::map<Index, RawDepthMap> load_from_csv(std::string path, const PlenopticCamera& mfpc)
+std::map<Index, DepthMap> load_from_csv(std::string path, const PlenopticCamera& mfpc)
 {
-	std::map<Index, RawDepthMap> maps;
+	std::map<Index, DepthMap> maps;
 	
 	using KLD = std::tuple<Index, Index, double>;
 	std::map<Index, std::vector<KLD>> depths;
@@ -186,10 +234,13 @@ std::map<Index, RawDepthMap> load_from_csv(std::string path, const PlenopticCame
 	for (auto & [frame, klds] : depths)
 	{
 		bool coarse = not (klds.size() > mfpc.mia().width() * mfpc.mia().height());
+		const std::size_t W = coarse? mfpc.mia().width(): mfpc.sensor().width();
+		const std::size_t H = coarse? mfpc.mia().height(): mfpc.sensor().height();
 		
-		RawDepthMap dm{mfpc, mind, maxd, 
-			RawDepthMap::DepthType::METRIC, 
-			coarse ? RawDepthMap::MapType::COARSE : RawDepthMap::MapType::REFINED
+		DepthMap dm{
+			W, H, mind, maxd, 
+			DepthMap::DepthType::METRIC, 
+			coarse ? DepthMap::MapType::COARSE : DepthMap::MapType::REFINED
 		};
 		
 		for (const auto& [k, l, d] : klds)
@@ -208,7 +259,7 @@ std::map<Index, RawDepthMap> load_from_csv(std::string path, const PlenopticCame
 std::map<Index, Pose> load(const MatsConfig& config)
 {
 	std::map<Index, Pose> maps;
-	for (auto & mat_cfg : config.mats())
+	for (auto & mat_cfg : config)
 	{
 		maps.emplace(mat_cfg.frame(), read_mat(mat_cfg.path()));	
 	}

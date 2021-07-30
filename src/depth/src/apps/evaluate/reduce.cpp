@@ -81,7 +81,7 @@ std::map<Index, double> reduce(const std::map<Index, Pose>& maps)
 	return dists;
 }
 
-std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const PlenopticCamera& pcm)
+std::map<Index, double> reduce(const std::map<Index, DepthMap>& maps, const PlenopticCamera& pcm)
 {
 	std::map<Index, double> dists;
 	
@@ -89,7 +89,7 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const P
 	{
 		std::vector<double> zs; zs.reserve(dm.width() * dm.height());
 		
-		const RawDepthMap mdm = dm.to_metric(pcm);
+		const DepthMap mdm = dm.to_metric(pcm);
 		
 		for (std::size_t k = 0; k < dm.width(); ++k)
 		{
@@ -111,7 +111,7 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const P
 	return dists;
 }
 
-std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs, const PlenopticCamera& pcm)
+std::map<Index, double> reduce(const std::map<Index, DepthMap>& maps, const std::unordered_map<Index, BAPObservations> &obs, const PlenopticCamera& pcm)
 {
 	std::map<Index, double> dists;
 	
@@ -123,7 +123,7 @@ std::map<Index, double> reduce(const std::map<Index, RawDepthMap>& maps, const s
 		
 		std::vector<double> zs; zs.reserve(baps.size());
 		
-		const RawDepthMap mdm = dm.to_metric(pcm);
+		const DepthMap mdm = dm.to_metric(pcm);
 		
 		for (const auto& bap : baps)
 		{

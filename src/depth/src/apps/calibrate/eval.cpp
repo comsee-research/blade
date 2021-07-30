@@ -12,14 +12,14 @@
 #include <pleno/io/printer.h>
 #include <pleno/io/choice.h>
 
-#include "geometry/depth/PointCloud.h"
-#include "geometry/depth/convert.h"
+#include "geometry/depth/pointcloud.h"
+#include "geometry/depth/depthmap.h"
 
 #include <pleno/processing/tools/error.h>
 
 void evaluate_scale_error(
 	const PlenopticCamera& mfpc, const CheckerBoard& scene,
-	const std::unordered_map<Index, RawDepthMap>& depthmaps,
+	const std::unordered_map<Index, DepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations,
 	const std::unordered_map<Index, Image>& pictures
 ) 
@@ -44,8 +44,8 @@ void evaluate_scale_error(
 		Image image = pictures.at(frame);
 		
 		//convert to pc
-		const RawDepthMap mdm = dm.to_metric(mfpc);
-		const PointCloud pc = to_pointcloud(mdm, mfpc, image);
+		const DepthMap mdm = dm.to_metric(mfpc);
+		const PointCloud pc = PointCloud{mdm, mfpc, image};
 		
 GUI(		
 		display(frame, pc);		

@@ -17,7 +17,7 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 //processing
 #include <pleno/processing/estimation.h> //estimation_plane_fitting/ransac
@@ -126,10 +126,10 @@ int main(int argc, char* argv[])
 	if (config.path.dm != "")
 	{
 		PRINT_WARN("\t3.2) Export depth histogram");
-		RawDepthMap dm{mfpc};
+		DepthMap dm;
 		v::load(config.path.dm, v::make_serializable(&dm));
 		
-		RawDepthMap odm = dm.is_virtual_depth() ? dm.to_metric(mfpc) : dm.to_virtual(mfpc);
+		DepthMap odm = dm.is_virtual_depth() ? dm.to_metric(mfpc) : dm.to_virtual(mfpc);
 		
 		PRINT_INFO("=== Exporting histogram");
 		export_depth_histogram(dm);	

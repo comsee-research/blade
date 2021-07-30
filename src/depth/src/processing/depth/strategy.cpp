@@ -57,8 +57,8 @@ void load(v::InputArchive& archive, DepthEstimationStrategy& strategies)
 	from_string(belief, strategies.belief);
 	from_string(search, strategies.search);
 	
-	strategies.dtype = RawDepthMap::DepthType(dtype);
-	strategies.mtype = RawDepthMap::MapType(mtype);
+	strategies.dtype = DepthMap::DepthType(dtype);
+	strategies.mtype = DepthMap::MapType(mtype);
 }
 
 //******************************************************************************

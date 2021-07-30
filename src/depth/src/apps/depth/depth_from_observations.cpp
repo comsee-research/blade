@@ -16,7 +16,7 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
@@ -153,7 +153,7 @@ int main(int argc, char* argv[])
 		
 		PRINT_INFO("=== Estimate depth from observations at frame = " << frame);	
 		const auto [mind, maxd] = initialize_min_max_distance(mfpc);
-		RawDepthMap dm{mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};
+		DepthMap dm{mfpc.mia().width(), mfpc.mia().height(), mfpc.obj2v(maxd), mfpc.obj2v(mind)};
 		
 		estimate_depth_from_obs(
 			dm, mfpc, pictures[frame], baps

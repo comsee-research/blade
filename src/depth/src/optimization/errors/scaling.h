@@ -11,7 +11,7 @@
 #include <pleno/geometry/object/checkerboard.h>
 #include <pleno/geometry/observation.h>
 
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 #include <pleno/processing/tools/functions.h>
 
@@ -23,13 +23,13 @@ struct ScalingCostError
 	const PlenopticCamera& mfpc;
 	const CheckerBoard& scene;
 	
-	const RawDepthMap& dm;
+	const DepthMap& dm;
 	std::unordered_map<Index /* cluster index */, BAPObservations> clusters;
 	
     ScalingCostError(
     	const PlenopticCamera& mfpc_,
     	const CheckerBoard& scene_, 
-    	const RawDepthMap& dm_,
+    	const DepthMap& dm_,
     	const BAPObservations& observations
     );
 

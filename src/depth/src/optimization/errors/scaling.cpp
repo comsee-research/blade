@@ -9,7 +9,7 @@ template <typename FunctionType>
 ScalingCostError<FunctionType>::ScalingCostError(
 	const PlenopticCamera& mfpc_,
 	const CheckerBoard& scene_, 
-	const RawDepthMap& dm_,
+	const DepthMap& dm_,
 	const BAPObservations& observations
 ) : mfpc{mfpc_}, scene{scene_}, dm{dm_}
 {

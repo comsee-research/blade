@@ -3,7 +3,7 @@
 #include <iostream>
 #include <libv/core/serialization/archives/base.hpp> //OutputArchive, InputArchive
 
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 enum InitStrategy : std::uint16_t { RANDOM = 0, REGULAR_GRID = 1, FROM_LEFT_BORDER = 2};
 enum BeliefPropagationStrategy : std::uint16_t { NONE = 0, FIRST_RING = 1, ALL_NEIGHS = 2};
@@ -14,8 +14,8 @@ struct DepthEstimationStrategy {
 	bool multithread					= true;
 	int nbthread						= -1;
 	
-	RawDepthMap::DepthType	dtype		= RawDepthMap::DepthType::VIRTUAL;
-	RawDepthMap::MapType	mtype		= RawDepthMap::MapType::COARSE;
+	DepthMap::DepthType	dtype		= DepthMap::DepthType::VIRTUAL;
+	DepthMap::MapType	mtype		= DepthMap::MapType::COARSE;
 	
 	double vmin							= 2.;
 	double vmax							= 20.;

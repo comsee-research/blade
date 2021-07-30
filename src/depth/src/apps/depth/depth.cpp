@@ -18,15 +18,16 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/RawDepthMap.h"
-#include "geometry/depth/PointCloud.h"
-#include "geometry/depth/convert.h"
+#include "geometry/depth/depthmap.h"
+#include "geometry/depth/pointcloud.h"
+#include "geometry/depth/depthimage.h"
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
 #include "processing/depth/depth.h"
 #include "processing/depth/strategy.h"
 #include "processing/depth/initialization.h"
+#include "processing/depth/filter.h"
 
 //config
 #include <pleno/io/cfg/images.h>
@@ -134,24 +135,28 @@ int main(int argc, char* argv[])
 	
 	PRINT_WARN("\t3.3) Estimate depthmaps");	
 	const auto [mind, maxd] = initialize_min_max_distance(mfpc);
-	const double dmin = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
+	const double dmin = strategies.dtype == DepthMap::DepthType::VIRTUAL ? 
 			strategies.vmin /* mfpc.obj2v(maxd) */
 		: 	std::max(mfpc.v2obj(strategies.vmax), mind);
 	
-	const double dmax = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
+	const double dmax = strategies.dtype == DepthMap::DepthType::VIRTUAL ? 
 			strategies.vmax /* mfpc.obj2v(mind) */
 		: 	std::min(mfpc.v2obj(strategies.vmin), maxd);
+		
+	const std::size_t W = strategies.mtype == DepthMap::MapType::COARSE ? mfpc.mia().width() : mfpc.sensor().width();
+	const std::size_t H = strategies.mtype == DepthMap::MapType::COARSE ? mfpc.mia().height() : mfpc.sensor().height();
 		
 	//for (std::size_t frame = 0; frame < pictures.size(); ++frame)
 	for (const auto& [frame, picture] : pictures)
 	{
 		PRINT_INFO("=== Estimate depth of frame = " << frame);	
-		RawDepthMap dm{
-			mfpc, dmin, dmax,
+		DepthMap dm{
+			W, H, dmin, dmax,
 			strategies.dtype, strategies.mtype
 		};
 	
 		estimate_depth(dm, mfpc, picture, strategies, cpictures[frame]);
+		inplace_minmax_filter_depth(dm, mfpc.obj2v(1500.), mfpc.obj2v(400.));
 		
 		if (config.save_all or save())
 		{
@@ -168,17 +173,14 @@ int main(int argc, char* argv[])
 				name << frame << "-" << getpid() << ".bin.gz";
 				
 				v::save(name.str(), v::make_serializable(&dm));
-			}
+			}			
 			
 			PRINT_INFO("=== Saving pointcloud...");
 			{
-				PointCloud pc = [&]() -> PointCloud {
-					RawDepthMap mdm = dm.to_metric(mfpc);
-					return to_pointcloud(mdm, mfpc, cpictures[frame]); //picture);
-				}();
+				PointCloud pc = PointCloud{dm, mfpc, cpictures[frame]};
+				inplace_minmax_filter_depth(pc, 400., 1500., Axis::Z);
 				
 				std::ostringstream name; 
-				
 				
 				if (strategies.probabilistic) name << "ppc-";
 				else name << "pc-";
@@ -189,6 +191,14 @@ int main(int argc, char* argv[])
 				name << frame << "-" << getpid() << ".bin.gz";
 				
 				v::save(name.str(), v::make_serializable(&pc));	
+				
+				PRINT_INFO("=== Saving central view depth map...");
+				DepthMapImage dmi = DepthMapImage{pc, mfpc};
+				cv::cvtColor(dmi.image, dmi.image, CV_BGR2RGB);
+				Image cleaned;
+				cv::medianBlur(dmi.image, cleaned, 5);
+				erode(cleaned, cleaned, 2);
+  				cv::imwrite("csai-"+std::to_string(frame)+"-dm-"+std::to_string(getpid())+".png", cleaned);
 			}		
 		}
 		

@@ -20,8 +20,8 @@
 #include <pleno/geometry/observation.h>
 #include <pleno/geometry/plane.h>
 
-#include "geometry/depth/RawDepthMap.h"
-#include "geometry/depth/PointCloud.h"
+#include "geometry/depth/depthmap.h"
+#include "geometry/depth/pointcloud.h"
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
@@ -34,10 +34,10 @@
 #include <pleno/io/cfg/scene.h>
 #include <pleno/io/cfg/observations.h>
 #include <pleno/io/cfg/poses.h>
+#include "io/depths.h"
 
 #include "utils.h"
 
-#include "load.h"
 #include "reduce.h"
 #include "compute.h"
 #include "export.h"
@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 	std::map<Index, double> gtdepth = load_gt_dist(config.path.gt);
 	
 	using DepthMapsType = std::variant<
-		std::map<Index, RawDepthMap>,
+		std::map<Index, DepthMap>,
 		std::map<Index, PointCloud>,
 		std::map<Index, Plane>,
 		std::map<Index, XYZs>,
@@ -106,59 +106,56 @@ int main(int argc, char* argv[])
 	
 	PRINT_WARN("\t2.2) Load depth maps");	
 	DepthMapsType vdms;
+	DepthsConfig cfg;
 	
 	if (config.path.dm != "") //evaluate depth from depthmap
 	{
-		DepthMapsConfig cfg;
 		v::load(config.path.dm, cfg);	
-		
 		// load
-		vdms.emplace<std::map<Index, RawDepthMap>>(load(cfg, mfpc));	
+		vdms.emplace<std::map<Index, DepthMap>>(load(cfg.maps()));	
 	}
 	else if (config.path.csv != "")
 	{		
+		v::load(config.path.csv, cfg);	
 		// load
-		vdms.emplace<std::map<Index, RawDepthMap>>(load_from_csv(config.path.csv, mfpc));	
+		vdms.emplace<std::map<Index, DepthMap>>(load_from_csv(cfg.csvs()[0].path(), mfpc));	
+	}
+	else if (config.path.pts != "")
+	{		
+		v::load(config.path.pts, cfg);	
+		// load
+		vdms.emplace<std::map<Index, PointCloud>>(load(cfg.ptss()));	
 	}
 	else if (config.path.pc != "")
 	{
-		PointCloudsConfig cfg;
 		v::load(config.path.pc, cfg);
-		
 		// load
-		vdms.emplace<std::map<Index, PointCloud>>(load(cfg));
+		vdms.emplace<std::map<Index, PointCloud>>(load(cfg.pointclouds()));
 	}
 	else if (config.path.pl != "")
 	{
-		PlanesConfig cfg;
 		v::load(config.path.pl, cfg);
-		
 		// load
-		vdms.emplace<std::map<Index, Plane>>(load(cfg));
+		vdms.emplace<std::map<Index, Plane>>(load(cfg.planes()));
 	}
 	else if (config.path.xyz != "")
 	{
-		XYZsConfig cfg;
 		v::load(config.path.xyz, cfg);
-	
 		// load
-		vdms.emplace<std::map<Index, XYZs>>(load(cfg));
+		vdms.emplace<std::map<Index, XYZs>>(load(cfg.xyzs()));
 	}
 	else if (config.path.poses != "")
 	{
-		CalibrationPosesConfig cfg;
-		v::load(config.path.poses, cfg);
-		
+		CalibrationPosesConfig cfgposes;
+		v::load(config.path.poses, cfgposes);
 		// load
-		vdms.emplace<std::map<Index, Pose>>(load(cfg));
+		vdms.emplace<std::map<Index, Pose>>(load(cfgposes));
 	}
 	else if (config.path.mat != "")
 	{
-		MatsConfig cfg;
 		v::load(config.path.mat, cfg);
-		
 		// load
-		vdms.emplace<std::map<Index, Pose>>(load(cfg));
+		vdms.emplace<std::map<Index, Pose>>(load(cfg.mats()));
 	}
 	else
 	{
@@ -173,7 +170,7 @@ int main(int argc, char* argv[])
 		//reduce
 		std::map<Index, double> depths;
 		
-		if constexpr (std::is_same_v<T, std::map<Index, RawDepthMap>>)
+		if constexpr (std::is_same_v<T, std::map<Index, DepthMap>>)
 		{
 			if (config.path.features != "") depths = reduce(dms, obs, mfpc);
 			else depths = reduce(dms, mfpc);

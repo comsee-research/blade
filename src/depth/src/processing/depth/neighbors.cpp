@@ -34,11 +34,12 @@ std::vector<IndexPair> neighbors(
 	
 	const std::size_t kmax = mia.width()-1-margin; const std::size_t kmin = 0+margin;
 	const std::size_t lmax = mia.height()-1-margin; const std::size_t lmin = 0+margin;
-	const double r = mia.radius() * std::min(std::max(std::fabs(v), minv), maxv) * 1.01;
+	const double dv = std::min(std::max(std::fabs(v), minv), maxv) / 2.;
+	const double r = mia.diameter() * dv * 1.01;
 	
-	for (int nk = std::floor(k - r); nk < std::ceil(k + r); ++nk)
+	for (int nk = std::floor(k - dv); nk < std::ceil(k + dv); ++nk)
 	{
-		for (int nl = std::floor(l - r); nl < std::ceil(l + r); ++nl)
+		for (int nl = std::floor(l - dv); nl < std::ceil(l + dv); ++nl)
 		{
 			if (nl == l and nk == k) continue; //same microimage
 			if (nk > kmax or nk < kmin or nl > lmax or nl < lmin) continue; //out of indexes
@@ -52,7 +53,7 @@ std::vector<IndexPair> neighbors(
 }
 
 std::vector<IndexPair> pixels_neighbors(
-	const MIA& mia, const Sensor& sensor, std::size_t k, std::size_t l
+	const MIA& mia, std::size_t W, std::size_t H, std::size_t k, std::size_t l
 )	
 {	
 	const auto c = mia.nodeInWorld(k,l);
@@ -61,9 +62,9 @@ std::vector<IndexPair> pixels_neighbors(
 	std::vector<IndexPair> indexes;
 	
 	const int umin = std::max(static_cast<int>(c[0] - r), 0);
-	const int umax = std::min(static_cast<int>(sensor.width()), static_cast<int>(c[0] + r));
+	const int umax = std::min(static_cast<int>(W), static_cast<int>(c[0] + r));
 	const int vmin = std::max(static_cast<int>(c[1] - r), 0);
-	const int vmax = std::min(static_cast<int>(sensor.height()), static_cast<int>(c[1] + r));
+	const int vmax = std::min(static_cast<int>(H), static_cast<int>(c[1] + r));
 	
 	for (int u = umin; u < umax; ++u)
 	{
@@ -89,11 +90,12 @@ std::map<double, std::vector<IndexPair>> neighbors_by_rings(
 	
 	const std::size_t kmax = mia.width()-1-margin; const std::size_t kmin = 0+margin;
 	const std::size_t lmax = mia.height()-1-margin; const std::size_t lmin = 0+margin;
-	const double r = mia.radius() * std::min(std::max(std::fabs(v), minv), maxv) * 1.01;
+	const double dv = std::min(std::max(std::fabs(v), minv), maxv) / 2.;
+	const double r = mia.diameter() * dv * 1.01;
 	
-	for (int nk = std::floor(k - r); nk < std::ceil(k + r); ++nk)
+	for (int nk = std::floor(k - dv); nk < std::ceil(k + dv); ++nk)
 	{
-		for (int nl = std::floor(l - r); nl < std::ceil(l + r); ++nl)
+		for (int nl = std::floor(l - dv); nl < std::ceil(l + dv); ++nl)
 		{
 			if (nl == l and nk == k) continue; //same microimage
 			if (nk > kmax or nk < kmin or nl > lmax or nl < lmin) continue; //out of indexes
@@ -122,11 +124,13 @@ std::vector<IndexPair> half_neighbors(
 	
 	const std::size_t kmax = mia.width()-1-margin; const std::size_t kmin = 0+margin;
 	const std::size_t lmax = mia.height()-1-margin; const std::size_t lmin = 0+margin;
-	const double r = mia.radius() * std::min(std::max(std::fabs(v), minv), maxv) * 1.01;
 	
-	for (int nk = k; nk < std::ceil(k + r); ++nk)
+	const double dv = std::min(std::max(std::fabs(v), minv), maxv) / 2.;
+	const double r = mia.diameter() * dv * 1.01;
+	
+	for (int nk = k; nk < std::ceil(k + dv); ++nk)
 	{
-		for (int nl = std::floor(l - r); nl < std::ceil(l + r); ++nl)
+		for (int nl = std::floor(l - dv); nl < std::ceil(l + dv); ++nl)
 		{
 			if (nl == l and nk == k) continue; //same microimage
 			if (nk > kmax or nk < kmin or nl > lmax or nl < lmin) continue; //out of indexes
@@ -150,11 +154,12 @@ std::map<double, std::vector<IndexPair>> half_neighbors_by_rings(
 	
 	const std::size_t kmax = mia.width()-1-margin; const std::size_t kmin = 0+margin;
 	const std::size_t lmax = mia.height()-1-margin; const std::size_t lmin = 0+margin;
-	const double r = mia.radius() * std::min(std::max(std::fabs(v), minv), maxv) * 1.01;
+	const double dv = std::min(std::max(std::fabs(v), minv), maxv) / 2.;
+	const double r = mia.diameter() * dv * 1.01;
 	
-	for (int nk = k; nk < std::ceil(k + r); ++nk)
+	for (int nk = k; nk < std::ceil(k + dv); ++nk)
 	{
-		for (int nl = std::floor(l - r); nl < std::ceil(l + r); ++nl)
+		for (int nl = std::floor(l - dv); nl < std::ceil(l + dv); ++nl)
 		{
 			if (nl == l and nk == k) continue; //same microimage
 			if (nk > kmax or nk < kmin or nl > lmax or nl < lmin) continue; //out of indexes

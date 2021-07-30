@@ -10,7 +10,7 @@
 
 #include <pleno/processing/imgproc/trim.h>
 
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 #include "depth.h"
 #include "strategy.h"
@@ -86,7 +86,7 @@ bool is_pixel_contrasted_enough(
 //******************************************************************************
 //******************************************************************************
 void compute_depthmap(
-	RawDepthMap& dm, 
+	DepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
 	const DepthEstimationStrategy& strategies
@@ -119,7 +119,7 @@ void compute_depthmap(
 				hypothesis.l = cl;
 				hypothesis.min = dm.min_depth();
 				hypothesis.max = dm.max_depth();
-				hypothesis.precision =  nbsample;
+				hypothesis.precision = nbsample;
 							 			
 			//add to queue
 			for (auto &n: ordered_neighs[1.]) 
@@ -162,6 +162,17 @@ void compute_depthmap(
 			//compute neighbors
 			const double maxabsv = std::ceil(std::fabs(dm.depth(ck, cl)));
 			std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, maxabsv, 2., 12.);
+			
+			//filter neighbors not having enougth contrast
+			neighs.erase(
+				std::remove_if(neighs.begin(), neighs.end(),
+					[&mfpc, &scene](const IndexPair& n) -> bool {
+						return not(is_contrasted_enough(mfpc.mia(), scene, n.k, n.l));
+					}
+				), 
+				neighs.end()
+			);
+			neighs.shrink_to_fit();
 			
 		#if 0 //SAME TYPE ONLY	
 			neighs.erase(
@@ -273,7 +284,7 @@ void compute_depthmap(
 //******************************************************************************
 //******************************************************************************
 void compute_refined_depthmap(
-	RawDepthMap& dm, 
+	DepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
 	const DepthEstimationStrategy& strategies
@@ -292,7 +303,7 @@ void compute_refined_depthmap(
 		auto [ck, cl] = microimages.front(); //current indexes
 		microimages.pop();
 				
-		std::vector<IndexPair> pixels = pixels_neighbors(mfpc.mia(), mfpc.sensor(), ck, cl);	
+		std::vector<IndexPair> pixels = pixels_neighbors(mfpc.mia(), mfpc.sensor().width(), mfpc.sensor().height(), ck, cl);	
 		
 		auto is_mi_state = [&pixels, &dm](DepthInfo::State state) -> bool {
 			for (const auto& [u, v] : pixels)
@@ -388,6 +399,17 @@ void compute_refined_depthmap(
 			//compute neighbors
 			std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, maxabsv, 2., 12.);
 			
+			//filter neighbors not having enougth contrast
+			neighs.erase(
+				std::remove_if(neighs.begin(), neighs.end(),
+					[&mfpc, &scene](const IndexPair& n) -> bool {
+						return not(is_contrasted_enough(mfpc.mia(), scene, n.k, n.l));
+					}
+				), 
+				neighs.end()
+			);
+			neighs.shrink_to_fit();
+			
 			//for each pixel
 			for (const auto& [u, v] : pixels)
 			{
@@ -452,7 +474,7 @@ void compute_refined_depthmap(
 //******************************************************************************
 //******************************************************************************
 void compute_probabilistic_depthmap(
-	RawDepthMap& dm,
+	DepthMap& dm,
 	const PlenopticCamera& mfpc, const Image& scene, 
 	std::size_t kinit, std::size_t linit,
 	const DepthEstimationStrategy& strategies
@@ -749,7 +771,7 @@ void compute_probabilistic_depthmap(
 //******************************************************************************
 //******************************************************************************
 void compute_depthmap_from_obs(
-	RawDepthMap& dm, 
+	DepthMap& dm, 
 	const PlenopticCamera& mfpc, const Image& scene, 
 	const BAPObservations& observations
 )

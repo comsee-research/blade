@@ -8,13 +8,13 @@
 #include <pleno/geometry/camera/plenoptic.h>
 #include <pleno/geometry/object/checkerboard.h>
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 #include "processing/tools/functions.h"
 
 void evaluate_scale_error(
 	const PlenopticCamera& mfpc, const CheckerBoard& scene,
-	const std::unordered_map<Index, RawDepthMap>& depthmaps,
+	const std::unordered_map<Index, DepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations,
 	const std::unordered_map<Index, Image>& pictures
 );
@@ -22,7 +22,7 @@ void evaluate_scale_error(
 void evaluate_scale_error(
 	const PlenopticCamera& mfpc, const auto& scaling,
 	const CheckerBoard& scene,
-	const std::unordered_map<Index, RawDepthMap>& depthmaps,
+	const std::unordered_map<Index, DepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations,
 	const std::unordered_map<Index, Image>& pictures
 );

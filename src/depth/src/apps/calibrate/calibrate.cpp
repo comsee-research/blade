@@ -10,7 +10,7 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 //processing
 #include <pleno/processing/calibration/init.h> 
@@ -25,7 +25,7 @@
 #include <pleno/io/cfg/scene.h>
 #include <pleno/io/cfg/observations.h>
 #include <pleno/io/cfg/poses.h>
-#include "io/cfg/depthmaps.h"
+#include "io/cfg/depths.h"
 
 #include <pleno/io/images.h>
 
@@ -158,14 +158,14 @@ int main(int argc, char* argv[])
 // 5) Load depth maps
 ////////////////////////////////////////////////////////////////////////////////
 	PRINT_WARN("5) Load depth maps");	
-	DepthMapsConfig cfg_dms;
-	v::load(config.path.dm, cfg_dms);
+	DepthsConfig cfg;
+	v::load(config.path.dm, cfg);
 	
-	std::unordered_map<Index, RawDepthMap> depthmaps;
+	std::unordered_map<Index, DepthMap> depthmaps;
 	
-	for (auto & cfg_dm : cfg_dms.maps())
+	for (auto & cfg_dm : cfg.maps())
 	{	
-		RawDepthMap dm{mfpc};
+		DepthMap dm;
 		v::load(cfg_dm.path(), v::make_serializable(&dm));
 		
 		depthmaps.emplace(cfg_dm.frame(), std::move(dm));
@@ -199,7 +199,7 @@ int main(int argc, char* argv[])
 	evaluate_scale_error(mfpc, scaling, scene, depthmaps, observations, pictures);
 	
 	PRINT_INFO("\t6.4) Computing new depth map");
-	auto reduce = [](const RawDepthMap& dm, const BAPObservations& obs = {}) -> double {
+	auto reduce = [](const DepthMap& dm, const BAPObservations& obs = {}) -> double {
 		std::vector<double> zs; 
 		if (obs.empty())
 		{	
@@ -229,7 +229,7 @@ int main(int argc, char* argv[])
 		return median(zs);
 	};
 	
-	auto reduce_scaled = [&scaling](const RawDepthMap& dm, const BAPObservations& obs = {}) -> double {
+	auto reduce_scaled = [&scaling](const DepthMap& dm, const BAPObservations& obs = {}) -> double {
 		std::vector<double> zs; 
 		if (obs.empty())
 		{	
@@ -261,7 +261,7 @@ int main(int argc, char* argv[])
 	
 	for (const auto& [frame, dm] : depthmaps)
 	{
-		const RawDepthMap mdm = dm.to_metric(mfpc);
+		const DepthMap mdm = dm.to_metric(mfpc);
 		const double z = reduce(mdm, observations[frame]);
 		const double sz = reduce_scaled(mdm, observations[frame]);
 		

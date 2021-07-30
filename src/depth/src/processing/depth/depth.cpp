@@ -9,7 +9,9 @@
 
 #include <pleno/processing/tools/stats.h> //median
 
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
+#include "processing/tools/chrono.h"
+
 #include "../../graphic/display.h"
 
 #include "strategy.h"
@@ -23,7 +25,7 @@
 //******************************************************************************
 //******************************************************************************
 void estimate_depth(
-	RawDepthMap& depthmap,
+	DepthMap& depthmap,
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const DepthEstimationStrategy& strategies,
@@ -32,7 +34,7 @@ void estimate_depth(
 )
 {	
 	std::string ss = "";
-	if (strategies.mtype == RawDepthMap::MapType::REFINED) ss = "refined ";
+	if (strategies.mtype == DepthMap::MapType::REFINED) ss = "refined ";
 	else if (strategies.probabilistic) ss = "probabilistic ";
 	
 	PRINT_INFO("=== Start " << ss <<"depth estimation" << (mfpc.multifocus() ? " (BLADE)": " (DISP)"));	
@@ -44,14 +46,14 @@ void estimate_depth(
   	);
 #endif	
 //------------------------------------------------------------------------------
-	RawDepthMap dm{depthmap};
+	DepthMap dm{depthmap};
 	
 	const unsigned int nbthreads = strategies.multithread ?
 			(strategies.nbthread == -1 ?  std::thread::hardware_concurrency()-1 : strategies.nbthread)
 		: 	1;
 		
 //------------------------------------------------------------------------------
-	auto t_start = std::chrono::high_resolution_clock::now();	
+	Chrono::tic();
 	// Run depth estimation
 	std::vector<std::thread> threads;
 	for(unsigned int i=0; i< nbthreads; ++i)
@@ -60,7 +62,7 @@ void estimate_depth(
 
 		const auto [k,l] = initialize_kl(i, nbthreads, mfpc.mia(), strategies.init);
 		
-		if (strategies.mtype == RawDepthMap::MapType::REFINED)
+		if (strategies.mtype == DepthMap::MapType::REFINED)
 		{
 			threads.push_back(
 				std::thread(
@@ -96,12 +98,11 @@ void estimate_depth(
 	for (std::thread & t : threads)
 		if (t.joinable()) t.join();
 		
-	auto t_end = std::chrono::high_resolution_clock::now();
-	const double computational_time = std::chrono::duration<double>(t_end-t_start).count();
+	Chrono::tac();
 	
-	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
+	PRINT_INFO("=== Estimation finished (in "<< Chrono::get() << " s)! Displaying depth map...");	
 
-	auto reduce = [](const RawDepthMap& dm) -> double {
+	auto reduce = [](const DepthMap& dm) -> double {
 		std::vector<double> zs; zs.reserve(dm.width() * dm.height());		
 		for (std::size_t k = 0; k < dm.width(); ++k)
 			for (std::size_t l = 0; l < dm.height(); ++l)
@@ -116,6 +117,7 @@ void estimate_depth(
 	dm.copy_to(depthmap);
 	if (gui)
 	{
+	GUI(
 		display(depthmap, mfpc);	
 	//------------------------------------------------------------------------------	
 	#if 0
@@ -123,20 +125,20 @@ void estimate_depth(
 		PRINT_INFO("=== Filtering depth map...");	
 	#if 0
 		inplace_minmax_filter_depth(dm, 2., 15.);	
-		RawDepthMap filtereddm = median_filter_depth(dm, 4.1);
+		DepthMap filtereddm = median_filter_depth(dm, 4.1);
 		PRINT_INFO("=== Filtering finished! Displaying depth map...");
 		display(filtereddm);
 	#else
-		RawDepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
+		DepthMap filtereddm = minmax_filter_depth(dm, 2., 15.);
 		#if 0
-			const RawDepthMap edm = morph_erosion_filter_depth(filtereddm);
-			const RawDepthMap ddm = morph_dilation_filter_depth(filtereddm);
-			const RawDepthMap odm = morph_opening_filter_depth(filtereddm);
-			const RawDepthMap cdm = morph_closing_filter_depth(filtereddm);
-			const RawDepthMap sdm = morph_smoothing_filter_depth(filtereddm);
-			const RawDepthMap dytdm = morph_dyt_filter_depth(filtereddm);
-			const RawDepthMap tetdm = morph_tet_filter_depth(filtereddm);
-			const RawDepthMap occodm = morph_occo_filter_depth(filtereddm);
+			const DepthMap edm = morph_erosion_filter_depth(filtereddm);
+			const DepthMap ddm = morph_dilation_filter_depth(filtereddm);
+			const DepthMap odm = morph_opening_filter_depth(filtereddm);
+			const DepthMap cdm = morph_closing_filter_depth(filtereddm);
+			const DepthMap sdm = morph_smoothing_filter_depth(filtereddm);
+			const DepthMap dytdm = morph_dyt_filter_depth(filtereddm);
+			const DepthMap tetdm = morph_tet_filter_depth(filtereddm);
+			const DepthMap occodm = morph_occo_filter_depth(filtereddm);
 		#endif
 		PRINT_INFO("=== Filtering finished! Displaying depth map...");
 		display(filtereddm);
@@ -157,7 +159,7 @@ void estimate_depth(
 	//------------------------------------------------------------------------------	
 		// Convert to metric depth map
 		PRINT_INFO("=== Converting depth map...");	
-		RawDepthMap mdm = dm.to_metric(mfpc);
+		DepthMap mdm = dm.to_metric(mfpc);
 		PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
 		display(mdm, mfpc);	
 		
@@ -166,13 +168,12 @@ void estimate_depth(
 		
 		PRINT_INFO("=== Converting to pointcloud...");
 		//inplace_median_filter_depth(mdm, mfpc.mia(), mdm.is_coarse_map() ? 3. : 2.);
-		PointCloud pc = to_pointcloud(mdm, mfpc, color);
+		PointCloud pc = PointCloud{mdm, mfpc, color};
 		
 		PRINT_INFO("=== Conversion finished! Displaying pointcloud (" << pc.size() << ")...");	
 		display(mfpc);
 		display(0, pc);	
 
-	GUI(
 		wait();
 	);
 	}
@@ -182,7 +183,7 @@ void estimate_depth(
 //******************************************************************************
 //******************************************************************************
 void estimate_depth_from_obs(
-	RawDepthMap& depthmap,
+	DepthMap& depthmap,
 	const PlenopticCamera& mfpc,
 	const Image& img,
 	const BAPObservations& observations, /*  (u,v,rho) */
@@ -198,20 +199,18 @@ void estimate_depth_from_obs(
   	);
 #endif	
 //------------------------------------------------------------------------------
-	RawDepthMap dm{depthmap};
+	DepthMap dm{depthmap};
 	
 //------------------------------------------------------------------------------
-	auto t_start = std::chrono::high_resolution_clock::now();	
+	Chrono::tic();	
 	// Run depth estimation
 	compute_depthmap_from_obs(
 		dm, mfpc, img, observations
 	);
 
 //------------------------------------------------------------------------------	
-	auto t_end = std::chrono::high_resolution_clock::now();
-	const double computational_time = std::chrono::duration<double>(t_end-t_start).count();
-	
-	PRINT_INFO("=== Estimation finished (in "<< computational_time << " s)! Displaying depth map...");	
+	Chrono::tac();
+	PRINT_INFO("=== Estimation finished (in "<< Chrono::get() << " s)! Displaying depth map...");	
 	if (gui)
 	{
 		display(dm, mfpc);
@@ -219,7 +218,7 @@ void estimate_depth_from_obs(
 	//------------------------------------------------------------------------------	
 		// Convert to metric depth map
 		PRINT_INFO("=== Converting depth map...");	
-		RawDepthMap mdm = dm.to_metric(mfpc);
+		DepthMap mdm = dm.to_metric(mfpc);
 		PRINT_INFO("=== Conversion finished! Displaying metric depth map...");	
 		display(mdm, mfpc);	
 		

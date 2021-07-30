@@ -19,6 +19,7 @@ struct Config_t {
 		std::string csv;
 		std::string xyz;
 		std::string poses;
+		std::string pts;
 		std::string mat;
 		std::string gt;
 	} path;

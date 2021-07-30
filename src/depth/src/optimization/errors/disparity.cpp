@@ -39,7 +39,7 @@ P2D DisparityCostError_<useBlur>::disparity(double v) const
 	const P2D idxi = mfpc.mi2ml(mii.k, mii.l);
 	const P2D idxj = mfpc.mi2ml(mij.k, mij.l); 
 	
-#if 1	
+#if 1 //TRUE DISPARITY	
 	const P2D deltac = (mii.center - mij.center);
 	
 	const double D = mfpc.D(idxi(0), idxi(1)); //(mfpc.D(idxi(0), idxi(1)) + mfpc.D(idxj(0), idxj(1))) / 2.;

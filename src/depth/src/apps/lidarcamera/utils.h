@@ -18,6 +18,7 @@ struct Config_t {
 		std::string pts;
 		std::string strategy;
 		std::string pc;
+		std::string dm;
 	} path;
 };
 

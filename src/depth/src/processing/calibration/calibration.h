@@ -9,7 +9,7 @@
 #include <pleno/geometry/object/constellation.h>
 #include <pleno/geometry/observation.h>
 
-#include "geometry/depth/RawDepthMap.h"
+#include "geometry/depth/depthmap.h"
 
 #include <pleno/processing/tools/functions.h>
 
@@ -31,7 +31,7 @@ void calibration_LidarPlenopticCamera(
 void calibration_depthScaling(                        
 	auto& scaling,  
 	const PlenopticCamera& mfpc, const CheckerBoard& scene,
-	const std::unordered_map<Index, RawDepthMap>& depthmaps,
+	const std::unordered_map<Index, DepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations
 );
 

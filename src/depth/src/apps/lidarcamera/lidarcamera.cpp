@@ -2,6 +2,8 @@
 #include <iostream>
 #include <unistd.h>
 
+#include <opencv2/photo.hpp>
+
 //LIBPLENO
 #include <pleno/types.h>
 
@@ -10,15 +12,18 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/PointCloud.h"
+#include "../../geometry/depth/pointcloud.h"
 
 //processing
 #include <pleno/processing/detection/detection.h> 
-#include <pleno/processing/imgproc/improcess.h> //devignetting
+#include <pleno/processing/imgproc/improcess.h> //devignetting, erode, dilate
 
 #include "../../processing/calibration/calibration.h" 
 #include "../../processing/depth/depth.h" 
 #include "../../processing/depth/initialization.h" 
+#include "../../processing/depth/filter.h" 
+
+#include "../../processing/tools/chrono.h"
 
 //graphic
 #include "../../graphic/display.h" 
@@ -30,11 +35,11 @@
 #include <pleno/io/cfg/observations.h>
 #include <pleno/io/cfg/poses.h>
 
-#include "io/cfg/xyzs.h"
+#include "../../io/cfg/depths.h"
 
 #include <pleno/io/images.h>
+#include "io/depths.h"
 
-#include "load.h"
 #include "utils.h"
 
 int main(int argc, char* argv[])
@@ -116,7 +121,7 @@ int main(int argc, char* argv[])
 	);
 	
 	PointsConstellation scene{cfg_scene.constellations()[0]};
-	for (const auto& p : scene.constellation) DEBUG_VAR(p);
+	for (const auto& p : scene.constellation) DEBUG_VAR(p.transpose());
 
 ////////////////////////////////////////////////////////////////////////////////
 // 4) Load bap features
@@ -166,73 +171,139 @@ int main(int argc, char* argv[])
 	
 ////////////////////////////////////////////////////////////////////////////////
 // 5) Optimize
-////////////////////////////////////////////////////////////////////////////////	
+////////////////////////////////////////////////////////////////////////////////
+	PRINT_WARN("5) Calibration lidar-camera");	
 	PRINT_WARN("\t5.1) Load initial pose");
 	CalibrationPoseConfig cfg_pose;
 	v::load(config.path.extrinsics, cfg_pose);
 	
 	CalibrationPose pose{cfg_pose.pose(), cfg_pose.frame()};
-	
+	DEBUG_VAR(pose.pose);
+
 	PRINT_WARN("\t5.2) Run calibration");
-	calibration_LidarPlenopticCamera(pose, mfpc, scene, bap_obs, picture);
-	
-	clear();
+	//calibration_LidarPlenopticCamera(pose, mfpc, scene, bap_obs, picture);
 	
 ////////////////////////////////////////////////////////////////////////////////
 // 6) PointCloud computation
-////////////////////////////////////////////////////////////////////////////////
-	PointCloud pc;
-
+////////////////////////////////////////////////////////////////////////////////s
 	if (config.path.pc == "")
 	{
-		PRINT_WARN("\t6.1) Load depth estimation config");		
-		DepthEstimationStrategy strategies;
-		v::load(config.path.strategy, v::make_serializable(&strategies));
+		PRINT_WARN("6) Computing PointCloud");
+		DepthMap dm;
 		
-		PRINT_WARN("\t6.2) Estimate depthmaps");	
-		const auto [mind, maxd] = initialize_min_max_distance(mfpc);
-		const double dmin = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
-				strategies.vmin /* mfpc.obj2v(maxd) */
-			: 	std::max(mfpc.v2obj(strategies.vmax), mind);
-		
-		const double dmax = strategies.dtype == RawDepthMap::DepthType::VIRTUAL ? 
-				strategies.vmax /* mfpc.obj2v(mind) */
-			: 	std::min(mfpc.v2obj(strategies.vmin), maxd);
+		if (config.path.dm == "")
+		{
+			PRINT_WARN("\t6.1) Load depth estimation config");		
+			DepthEstimationStrategy strategies;
+			v::load(config.path.strategy, v::make_serializable(&strategies));
 			
-		RawDepthMap dm{
-			mfpc, dmin, dmax,
-			strategies.dtype, strategies.mtype
-		};
+			PRINT_WARN("\t6.2) Estimate depthmaps");	
+			const auto [mind, maxd] = initialize_min_max_distance(mfpc);
+			const double dmin = strategies.dtype == DepthMap::DepthType::VIRTUAL ? 
+					strategies.vmin /* mfpc.obj2v(maxd) */
+				: 	std::max(mfpc.v2obj(strategies.vmax), mind);
+			
+			const double dmax = strategies.dtype == DepthMap::DepthType::VIRTUAL ? 
+					strategies.vmax /* mfpc.obj2v(mind) */
+				: 	std::min(mfpc.v2obj(strategies.vmin), maxd);
+				
+			const std::size_t W = strategies.mtype == DepthMap::MapType::COARSE ? 
+					mfpc.mia().width() 
+				: 	mfpc.sensor().width();
+				
+			const std::size_t H = strategies.mtype == DepthMap::MapType::COARSE ? 
+					mfpc.mia().height() 
+				: 	mfpc.sensor().height();
+				
+			DepthMap tdm{
+				W, H, dmin, dmax,
+				strategies.dtype, strategies.mtype
+			};
 
-		estimate_depth(dm, mfpc, gray, strategies, picture, false);
-		v::save("dm-"+std::to_string(getpid())+".bin.gz", v::make_serializable(&dm));
-		clear();
+			estimate_depth(tdm, mfpc, gray, strategies, picture, false);
+			v::save("dm-"+std::to_string(getpid())+".bin.gz", v::make_serializable(&tdm));
+			clear();
+			
+			config.path.dm = "./dm-"+std::to_string(getpid())+".bin.gz";
+		}
 		
-		PRINT_WARN("\t6.3) Computing PointCloud");
+		v::load(config.path.dm, v::make_serializable(&dm));
+		inplace_minmax_filter_depth(dm, mfpc.obj2v(1500.), mfpc.obj2v(400.));
+		
+		//FIXME: filter should be applied on metric dm, as all virtual depth hypotheses are in the same unit
+
 		PointCloud pc = [&]() -> PointCloud {
-			RawDepthMap mdm = dm.to_metric(mfpc);
-			return to_pointcloud(mdm, mfpc, picture);
+			DepthMap mdm = dm.to_metric(mfpc);
+			
+			//if (mdm.is_refined_map()) inplace_median_filter_depth(mdm, mfpc, AUTOMATIC_FILTER_SIZE, true);
+			//inplace_median_filter_depth(mdm, mfpc, AUTOMATIC_FILTER_SIZE, false);		
+			
+			//if (mdm.is_refined_map()) inplace_bilateral_filter_depth(mdm, mfpc, 10., 1., true);
+			//inplace_bilateral_filter_depth(mdm, mfpc, 10., AUTOMATIC_FILTER_SIZE, false);	
+			
+			//inplace_consistency_filter_depth(mdm, mfpc, 10. /* mm */);	
+				
+			inplace_minmax_filter_depth(mdm, 400., 1500.);
+			display(mdm, mfpc);
+		
+			return PointCloud{mdm, mfpc, picture};
 		}();		
 		v::save("pc-"+std::to_string(getpid())+".bin.gz", v::make_serializable(&pc));
+		
+		config.path.pc = std::string("pc-"+std::to_string(getpid())+".bin.gz");
+		wait();
 	}
 	else
 	{
-		PRINT_WARN("\t6) Load pointcloud");
-		v::load(config.path.pc, v::make_serializable(&pc));
+		PRINT_WARN("6) Load pointcloud");
 	}
 	
-	PRINT_WARN("\t7) Graphically checking point cloud transform");
+FORCE_GUI(true);	
+	constexpr std::size_t maxcount = 50'000;
+	
+	PointCloud pc; 
+	v::load(config.path.pc, v::make_serializable(&pc));
+	inplace_minmax_filter_depth(pc, 400., 1500., Axis::Z);
+	inplace_maxcount_filter_depth(pc, maxcount);
+	DEBUG_VAR(pc.size());
+	
+	PRINT_WARN("7) Graphically checking point cloud transform");
 	const CalibrationPose porigin{Pose{}, -1}; 
 	display(porigin); display(scene); display(pose);
 	
 	display(1, pc);
+	
+	PointsConstellation initial_constellation, final_constellation;
+	for	(const P3D& pc : scene)
+	{
+		const P3D p = to_coordinate_system_of(cfg_pose.pose(), pc);
+		initial_constellation.add(p);
+		
+		const P3D q = to_coordinate_system_of(pose.pose, pc);
+		final_constellation.add(q);
+	}
+	display(initial_constellation); //constellation transformed, coord in (0,0,0), i.e. camera frame
+	display(final_constellation); 
+	
 	wait();
 	
-	PointCloud pc_transformed = pc; 
-	pc_transformed.transform(pose.pose);
-	display(2, pc_transformed);
-	wait();
-	
+	if (config.path.pts != "")
+	{
+		PointCloud reference = read_pts(config.path.pts);		
+		display(2, reference);	
+		
+		PointCloud transformed_pc = reference;
+		transformed_pc.transform(pose.pose);
+		inplace_minmax_filter_depth(transformed_pc, 400., 1500., Axis::Z);		
+		inplace_maxcount_filter_depth(transformed_pc, maxcount);
+		DEBUG_VAR(transformed_pc.size());
+		
+		display(3, transformed_pc);			
+		
+		wait();	
+	}
+FORCE_GUI(false);		
+
 	PRINT_INFO("========= EOF =========");
 
 	Viewer::wait();

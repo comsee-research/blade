@@ -21,13 +21,31 @@ set(MULTIFOCUS_LIBS
 	${Boost_LIBRARIES}
 )
 
+#--------------------
+# DEPENDENCY: OpenMP (optional)
+#--------------------
+set(USE_OPEN_MP FALSE CACHE BOOL "Set to TRUE to use OpenMP")
+if (USE_OPEN_MP)
+	find_package(OpenMP)
+	if (OPENMP_FOUND)
+		add_definitions(-fopenmp -DHAVE_OPENMP)
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+		if (CMAKE_COMPILER_IS_GNUCC)
+			set(EXTERNAL_LIBS ${EXTERNAL_LIBS} gomp)
+    	message("-- OpenMP found, parallel computer enabled")
+		endif(CMAKE_COMPILER_IS_GNUCC)
+	endif(OPENMP_FOUND)
+endif (USE_OPEN_MP)
+
 ##INCLUDE DIRECTORIES
 set(MULTIFOCUS_INCDIRS "src" "geometry" "graphic" "io" "optimization" "processing")
 
 ##SOURCES
 set(MULTIFOCUS_SRCS 
 	##---------------
-	src/geometry/depth/RawDepthMap.cpp
+	src/geometry/depth/depthmap.cpp
+	src/geometry/depth/depthimage.cpp
+	src/geometry/depth/pointcloud.cpp
 	##---------------
 	src/optimization/depth.cpp
 	src/optimization/functions.cpp
@@ -48,7 +66,11 @@ set(MULTIFOCUS_SRCS
 	src/processing/calibration/scaling.cpp
 	src/processing/calibration/lidarcamera.cpp
 	##---------------
+	src/processing/tools/chrono.cpp
+	##---------------
 	src/graphic/viewer_3d.cpp
+	##---------------
+	src/io/depths.cpp
 	##---------------
 )
 
@@ -96,6 +118,13 @@ target_link_libraries(depth_lidarcamera ${MULTIFOCUS_LIBS} pthread)
 
 ##################################################
 ##################################################
+set(APP_DISTANCES_SRCS src/apps/distances/distances.cpp src/apps/distances/utils.cpp)
+add_executable(depth_distances ${APP_DISTANCES_SRCS} ${MULTIFOCUS_SRCS})
+target_include_directories(depth_distances PRIVATE ${MULTIFOCUS_INCDIRS})
+target_link_libraries(depth_distances ${MULTIFOCUS_LIBS} pthread)
+
+##################################################
+##################################################
 ##SOURCES
 set(APP_EVALUATE_SRCS 
 	##---------------
@@ -103,7 +132,6 @@ set(APP_EVALUATE_SRCS
 	src/apps/evaluate/utils.cpp
 	##---------------
 	src/apps/evaluate/reduce.cpp
-	src/apps/evaluate/load.cpp
 	src/apps/evaluate/compute.cpp
 	src/apps/evaluate/export.cpp
 	##---------------

@@ -15,7 +15,7 @@ template<>
 void calibration_depthScaling<LinearFunction>(                        
 	LinearFunction& scaling,  
 	const PlenopticCamera& mfpc, const CheckerBoard& scene,
-	const std::unordered_map<Index, RawDepthMap>& depthmaps,
+	const std::unordered_map<Index, DepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations
 );
 
@@ -23,6 +23,6 @@ template<>
 void calibration_depthScaling<QuadraticFunction>(                        
 	QuadraticFunction& scaling,
 	const PlenopticCamera& mfpc, const CheckerBoard& scene,
-	const std::unordered_map<Index, RawDepthMap>& depthmaps,
+	const std::unordered_map<Index, DepthMap>& depthmaps,
 	const std::unordered_map<Index, BAPObservations>& observations
 );

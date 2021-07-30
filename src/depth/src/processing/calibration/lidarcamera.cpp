@@ -16,10 +16,11 @@
 
 //graphic
 #include <pleno/graphic/gui.h>
-#include "graphic/display.h"
+#include "../../graphic/display.h"
 
 //calibration
 #include "link.h"
+#include "init.h"
 
 //******************************************************************************
 //******************************************************************************
@@ -43,8 +44,8 @@ void optimize(
 	using Solver_t = std::variant<std::monostate, SolverBAP, SolverCorner>;
 	
 	Solver_t vsolver;
-		if(useRadius) vsolver.emplace<SolverBAP>(1e-4, 150, 1.0 - 1e-12);
-		else vsolver.emplace<SolverCorner>(1e-4, 150, 1.0 - 1e-12);  
+		if(useRadius) vsolver.emplace<SolverBAP>(-1., 250, 1.0 - 1e-18);
+		else vsolver.emplace<SolverCorner>(-1., 250, 1.0 - 1e-18);  
 
 	Pose p = transformation.pose;	
 	
@@ -111,11 +112,27 @@ void calibration_LidarPlenopticCamera(
 	PRINT_DEBUG("Change indexes' space from MI to ML");
 	model.mi2ml(features);
 	
+//1) Link Observations
+	PRINT_INFO("=== Init extrinsic");
+	CalibrationPose extrinsic = pose;		
+	init_extrinsic(extrinsic, model, constellation, features, scene);
+	DEBUG_VAR(extrinsic.pose);
+	pose.pose = extrinsic.pose;
+	
 //2) Run optimization
 	PRINT_INFO("=== Run optimization");
 	const CalibrationPose porigin{Pose{}, -1}; 
 	pose.frame = 0;
 	display(porigin); display(constellation); display(pose);
+	
+	PointsConstellation constellation2;
+	for	(const P3D& pc : constellation)
+	{
+		const P3D p = to_coordinate_system_of(pose.pose, pc);
+		constellation2.add(p);
+	}
+	display(constellation2); //constellation transformed, coord in (0,0,0), i.e. camera frame
+	for (const auto& p : constellation2) DEBUG_VAR(p.transpose());
 	
 	wait();
 	optimize(pose, model, constellation, features);
@@ -130,8 +147,20 @@ void calibration_LidarPlenopticCamera(
 			"lidar-camera-pose-"+std::to_string(getpid())+".js", 
 			cfg_pose
 		);
-	}		
+	}
+			
+	PointsConstellation constellation3;
+	for	(const P3D& pc : constellation) 
+	{
+		const P3D p = to_coordinate_system_of(pose.pose, pc);
+		constellation3.add(p);
+	}
+	for (const auto& p : constellation3) DEBUG_VAR(p);
+	pose.frame = 1;
+	display(constellation3); display(pose);
+	
+	display(model, pose, constellation, features, scene);
 	
 	wait();
-	//apply transformation on pointcloud and visually check the results
+	clear();
 }

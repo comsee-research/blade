@@ -66,6 +66,7 @@ FORCE_GUI(true);
 		
 		//wait for click	
 		while(not finished);
+		Viewer::context().on_click([&](float x, float y){});
 		
 		//find nearest cluster
 		int minc = -1; double mindist = 1e5; int j = 0;

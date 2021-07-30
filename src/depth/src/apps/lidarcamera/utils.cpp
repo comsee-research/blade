@@ -66,6 +66,10 @@ Config_t parse_args(int argc, char *argv[])
 		("pc",
 			po::value<std::string>()->default_value(""),
 			"Path to reading pointcloud file (pc.bin.gz)"
+		)
+		("dm",
+			po::value<std::string>()->default_value(""),
+			"Path to reading depthmap file (dm.bin.gz)"
 		);
 
 	po::variables_map vm;
@@ -115,6 +119,7 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.extrinsics 	= vm["extrinsics"].as<std::string>();
 	config.path.pts			= vm["pts"].as<std::string>();
 	config.path.pc			= vm["pc"].as<std::string>();
+	config.path.dm			= vm["dm"].as<std::string>();
 	config.path.scene		= vm["scene"].as<std::string>();
 	config.path.strategy	= vm["strat"].as<std::string>();
 	

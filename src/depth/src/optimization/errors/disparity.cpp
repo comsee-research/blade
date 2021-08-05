@@ -247,7 +247,7 @@ bool DisparityCostError_<useBlur>::operator()(
 #if ENABLE_DEBUG_DISPLAY
 	Image costimg;
 	cv::add(finalref, -1. * finaltarget, costimg);
-	cv::abs(costimg);
+	costimg = cv::abs(costimg);
 
 	cv::namedWindow("ref", cv::WINDOW_NORMAL);
 	cv::namedWindow("fref", cv::WINDOW_NORMAL);

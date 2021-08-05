@@ -16,6 +16,7 @@ struct Config_t {
 		std::string pts;
 		std::string pc;
 		std::string dm;
+		std::string csai;
 	} path;
 };
 

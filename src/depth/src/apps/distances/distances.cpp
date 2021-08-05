@@ -25,8 +25,11 @@
 
 #include "../../processing/tools/chrono.h"
 
+#include "../../processing/imgproc/quality.h"
+
 //graphic
 #include "../../graphic/display.h" 
+#include "../../graphic/color.h" 
 
 //config
 #include <pleno/io/cfg/images.h>
@@ -122,7 +125,7 @@ int main(int argc, char* argv[])
 
 	
 ////////////////////////////////////////////////////////////////////////////////
-// 5) Optimize
+// 3) Load extrinsic pose
 ////////////////////////////////////////////////////////////////////////////////
 	PRINT_WARN("3) Load extrinsic pose");
 	CalibrationPoseConfig cfg_pose;
@@ -130,7 +133,116 @@ int main(int argc, char* argv[])
 	
 	const Pose extrinsics = cfg_pose.pose();
 	DEBUG_VAR(extrinsics);
+
+////////////////////////////////////////////////////////////////////////////////
+// 4) Error computation
+////////////////////////////////////////////////////////////////////////////////
+	constexpr double maxd = 1500.;
+	constexpr double mind = 400.;
 	
+	if (config.path.csai != "")
+	{
+		Image colormap;
+	#if 0
+		cv::Mat lut(1, 256, CV_8UC1);
+		uchar *ptr = lut.ptr<uchar>(0);
+		for(int i = 0; i < 256; ++i) ptr[i] = i;
+		
+		cv::applyColorMap(lut, colormap, cv::COLORMAP_JET);
+	#else
+		colormap = PLENO_COLORMAP_TURBO; //PLENO_COLORMAP_VIRIDIS; //
+	#endif
+		colormap.at<cv::Vec3b>(0,0) = cv::Vec3b{0,0,0};
+	
+		constexpr double ranged = 950.; //(maxd-mind); // 
+		
+		std::map<Index, Image> refcsais;
+		std::map<Index, Image> csais;
+		
+		DepthsConfig depths_cfg;
+		v::load(config.path.csai, depths_cfg);
+		
+		csais = load(depths_cfg.csais());
+		refcsais = load(depths_cfg.refcsais());
+		
+		for (const auto& [frame, ref] : refcsais)
+		{
+			const auto imit = csais.find(int(frame));
+			if (imit == csais.cend()) continue;
+			
+			Image& im = imit->second;
+			
+			PRINT_DEBUG("=== Starting computing MSE quality....");
+			{
+			Chrono::tic();
+				const auto [qualitymap, q] = quality(ref, im, ImageQualityType::MSE, ranged);
+			Chrono::tac();
+				PRINT_DEBUG("...Finished!");
+				PRINT_INFO("(frame = "<< frame << ") Q(ref, reading) = "<< q << " (computed in "<< Chrono::get() << " s)!");	
+				cv::imwrite("quality-mse-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", qualitymap);
+				
+				Image cqmap;
+				cv::LUT(qualitymap, colormap, cqmap);
+				cv::imwrite("color-quality-mse-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cqmap);				
+			}
+			PRINT_DEBUG("=== Starting computing MAE quality....");	
+			{
+			Chrono::tic();
+				const auto [qualitymap, q] = quality(ref, im, ImageQualityType::MAE, ranged);
+			Chrono::tac();
+				PRINT_DEBUG("...Finished!");
+				PRINT_INFO("(frame = "<< frame << ") Q(ref, reading) = "<< q << " (computed in "<< Chrono::get() << " s)!");	
+				cv::imwrite("quality-mae-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", qualitymap);
+				
+				Image cqmap;
+				cv::LUT(qualitymap, colormap, cqmap);
+				cv::imwrite("color-quality-mae-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cqmap);	
+			}
+			PRINT_DEBUG("=== Starting computing BadPix quality....");
+			{
+			Chrono::tic();
+				const auto [qualitymap, q] = quality_badpix(ref, im, 10., ranged);
+			Chrono::tac();
+				PRINT_DEBUG("...Finished!");
+				PRINT_INFO("(frame = "<< frame << ") Q(ref, reading) = "<< q << " (computed in "<< Chrono::get() << " s)!");	
+				cv::imwrite("quality-badpix-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", qualitymap);
+				
+				Image cqmap;
+				cv::LUT(qualitymap, colormap, cqmap);
+				cv::imwrite("color-quality-badpix-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cqmap);	
+			}
+			
+			PRINT_DEBUG("=== Starting computing PSNR quality....");
+			{
+			Chrono::tic();
+				const auto [qualitymap, q] = quality(ref, im, ImageQualityType::PSNR, ranged);
+			Chrono::tac();
+				PRINT_DEBUG("...Finished!");
+				PRINT_INFO("(frame = "<< frame << ") Q(ref, reading) = "<< q << " (computed in "<< Chrono::get() << " s)!");	
+				cv::imwrite("quality-psnr-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", qualitymap);
+				
+				Image cqmap;
+				cv::LUT(qualitymap, colormap, cqmap);
+				cv::imwrite("color-quality-psnr-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cqmap);	
+			}
+			
+			PRINT_DEBUG("=== Starting computing SSIM quality....");
+			{
+			Chrono::tic();
+				const auto [qualitymap, q] = quality(ref, im, ImageQualityType::SSIM);
+			Chrono::tac();
+				PRINT_DEBUG("...Finished!");
+				PRINT_INFO("(frame = "<< frame << ") Q(ref, reading) = "<< q << " (computed in "<< Chrono::get() << " s)!");	
+				cv::imwrite("quality-ssim-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", qualitymap);
+				
+				Image cqmap;
+				cv::LUT(qualitymap, colormap, cqmap);
+				cv::imwrite("color-quality-ssim-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cqmap);	
+			}
+			
+			wait();
+		}
+	}
 ////////////////////////////////////////////////////////////////////////////////
 // 4) PointCloud computation
 ////////////////////////////////////////////////////////////////////////////////
@@ -148,7 +260,11 @@ int main(int argc, char* argv[])
 		PRINT_WARN("\t4.2) Converting to pointclouds");
 		for (auto& [frame, dm] : depthmaps)
 		{
-			inplace_minmax_filter_depth(dm, mfpc.obj2v(1500.), mfpc.obj2v(400.));
+			inplace_minmax_filter_depth(dm, mfpc.obj2v(maxd), mfpc.obj2v(mind));
+			DepthMapImage dmi = DepthMapImage{dm, mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};
+			
+  			cv::imwrite("dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", dmi.image);
+  			
 			//FIXME: filter should be applied on metric dm, as all virtual depth hypotheses are in the same unit
 
 			PointCloud pc = [&]() -> PointCloud {
@@ -163,15 +279,13 @@ int main(int argc, char* argv[])
 				
 				//inplace_consistency_filter_depth(mdm, mfpc, 10. /* mm */);	
 					
-				inplace_minmax_filter_depth(mdm, 400., 1500.);		
+				inplace_minmax_filter_depth(mdm, mind, maxd);		
 				display(mdm, mfpc);
 			
 				return PointCloud{mdm, mfpc, pictures[frame]};
 			}();		
 			v::save("pc-"+std::to_string(frame)+"-"+std::to_string(getpid())+".bin.gz", v::make_serializable(&pc));
 			
-			pointclouds.emplace(int(frame), std::move(pc));
-						
 			if (yes_no_question("Save as .csv"))//save csv
 			{
 				std::ofstream ofs(
@@ -194,6 +308,8 @@ int main(int argc, char* argv[])
 				ofs << oss.str();
 				ofs.close();
 			}
+			
+			pointclouds.emplace(int(frame), std::move(pc));
 		}
 	}
 	else
@@ -220,7 +336,7 @@ int main(int argc, char* argv[])
 	{	
 		PRINT_INFO("=== Displaying pc ("<< frame <<")");
 		
-		inplace_minmax_filter_depth(pc, 400., 1500., Axis::Z);
+		inplace_minmax_filter_depth(pc, mind, maxd, Axis::Z);
 		display(- 100 - frame, pc);
 		
 		PRINT_INFO("=== Processing pc ("<< frame <<")");
@@ -228,8 +344,28 @@ int main(int argc, char* argv[])
 		if (yes_no_question("Do you want to compute CSAI"))
 		{
 		Chrono::tic();
-			DepthMapImage dmi = DepthMapImage{pc, mfpc};
-		Chrono::tac();
+			DepthMapImage dmi = DepthMapImage{pc, mfpc, mind, maxd};
+		Chrono::tac();			
+			{
+				Image cleaned;
+				cv::medianBlur(dmi.image, cleaned, 5);
+				erode(cleaned, cleaned, 2);
+				
+				RENDER_DEBUG_2D(
+					Viewer::context().layer(Viewer::layer()++)
+						.name("CSAI Depth map (cleaned)"),
+					cleaned
+			  	);
+			  	cv::imwrite("csai-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cleaned);
+		  	}
+		  	{
+				Image cleaned;
+				cv::medianBlur(dmi.depthmap, cleaned, 5);
+				erode(cleaned, cleaned, 2);
+				
+			  	cv::imwrite("fcsai-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".exr", cleaned);
+		  	}
+		  	
 			cv::cvtColor(dmi.image, dmi.image, CV_BGR2RGB);
 			RENDER_DEBUG_2D(
 				Viewer::context().layer(Viewer::layer()++)
@@ -237,25 +373,6 @@ int main(int argc, char* argv[])
 				dmi.image
 		  	);
 			PRINT_DEBUG("CSAI depth map (in " << Chrono::get() << " s)");
-			
-			Image cleaned;
-			erode(dmi.image, cleaned, 2);
-			dilate(cleaned, cleaned, 2);
-			cv::medianBlur(cleaned, cleaned, 5);
-			
-			#if 0 //inpainting
-				Image immask(cleaned.size(),CV_8UC1);
-				cv::cvtColor(cleaned, immask, cv::COLOR_RGB2GRAY);
-				cv::bitwise_not(immask, immask);
-				
-				cv::inpaint(cleaned, immask, cleaned, 10, cv::INPAINT_TELEA);	
-			#endif
-			RENDER_DEBUG_2D(
-				Viewer::context().layer(Viewer::layer()++)
-					.name("CSAI Depth map (cleaned)"),
-				cleaned
-		  	);
-		  	cv::imwrite("csai-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cleaned);
 		}
 		
 		if (yes_no_question("Do you want to reproject pointcloud"))
@@ -297,11 +414,33 @@ int main(int argc, char* argv[])
 		if (pcit == pointclouds.cend()) continue;
 		
 		PointCloud& pc = pcit->second;
-		 
+			 
 		const CalibrationPose porigin{Pose{}, -1}; display(porigin);
 		
 		ref.transform(extrinsics);
-		inplace_minmax_filter_depth(ref, 400., 1500., Axis::Z);
+		inplace_minmax_filter_depth(ref, mind, maxd, Axis::Z);
+		
+		if (yes_no_question("Do you want to compute ref CSAI"))
+		{
+		Chrono::tic();
+			DepthMapImage dmi = DepthMapImage{ref, mfpc, mind, maxd, false /* use min instead of median */};
+		Chrono::tac();
+			//cv::cvtColor(dmi.image, dmi.image, CV_BGR2RGB);
+			PRINT_DEBUG("CSAI depth map (in " << Chrono::get() << " s)");
+			
+			{
+				Image cleaned;
+				cv::medianBlur(dmi.image, cleaned, 5);
+							
+			  	cv::imwrite("ref-csai-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cleaned);
+		  	}
+		  	{
+				Image cleaned;
+				cv::medianBlur(dmi.depthmap, cleaned, 5);
+							
+			  	cv::imwrite("ref-fcsai-"+std::to_string(frame)+"-"+std::to_string(getpid())+".exr", cleaned);
+		  	}
+		}
 		
 		if (yes_no_question("Save as .csv"))
 		{
@@ -326,29 +465,56 @@ int main(int argc, char* argv[])
 			ofs.close();
 		}
 		
-		inplace_maxcount_filter_depth(ref, maxcount);
-		DEBUG_VAR(ref.size());
-		
-		PRINT_INFO("=== Displaying pointcloud ("<< frame <<")");
-		display(frame, ref);	
+		if (yes_no_question("Computing distances"))
+		{
+			inplace_maxcount_filter_depth(ref, maxcount);
+			DEBUG_VAR(ref.size());
 			
-		auto chamfer_distance = [](const PointCloud& ref, const PointCloud& reading) -> double {
-			return (
-				0. + //ref.distance(reading, PointCloud::DistanceType::Chamfer) 
-				+ reading.distance(ref, PointCloud::DistanceType::Chamfer)
-			);
-		};
-		
-		PRINT_DEBUG("=== Starting computing Chamfer distance....");
-	Chrono::tic();
-		const double score = chamfer_distance(ref, pc);
-	Chrono::tac();
-		PRINT_DEBUG("...Finished!");
-	
-		PRINT_INFO("(frame = "<< frame << ") D(ref, reading) = "<< score << " (computed in "<< Chrono::get() << " s)!");	
-		
-		
-		wait();		
+			PRINT_INFO("=== Displaying pointcloud ("<< frame <<")");
+			display(frame, ref);	
+				
+			auto chamfer_distance = [](const PointCloud& ref, const PointCloud& reading) -> double {
+				return (
+					0. + //ref.distance(reading, PointCloud::DistanceType::Chamfer) 
+					+ reading.distance(ref, PointCloud::DistanceType::Chamfer)
+				);
+			};
+			
+			auto eucli_distance = [](const PointCloud& ref, const PointCloud& reading) -> double {
+				return (
+					0. + //ref.distance(reading, PointCloud::DistanceType::Euclidean) 
+					+ reading.distance(ref, PointCloud::DistanceType::Euclidean)
+				);
+			};
+			
+			auto hausdorff_distance = [](const PointCloud& ref, const PointCloud& reading) -> double {
+				return (
+					0. + //ref.distance(reading, PointCloud::DistanceType::Hausdorff) 
+					+ reading.distance(ref, PointCloud::DistanceType::Hausdorff)
+				);
+			};
+			
+			{
+				PRINT_DEBUG("=== Starting computing Chamfer distance....");
+			Chrono::tic();
+				const double score = chamfer_distance(ref, pc);
+			Chrono::tac();
+				PRINT_DEBUG("...Finished!");
+			
+				PRINT_INFO("(frame = "<< frame << ") D(ref, reading) = "<< score << " (computed in "<< Chrono::get() << " s)!");	
+			}
+			{
+				PRINT_DEBUG("=== Starting computing Hausdorff distance....");
+			Chrono::tic();
+				const double score = hausdorff_distance(ref, pc);
+			Chrono::tac();
+				PRINT_DEBUG("...Finished!");
+			
+				PRINT_INFO("(frame = "<< frame << ") D(ref, reading) = "<< score << " (computed in "<< Chrono::get() << " s)!");	
+			}
+		}
+		wait();	
+			
 	}
 	
 //FORCE_GUI(false);		

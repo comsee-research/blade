@@ -60,6 +60,15 @@ V_DEFINE_PROPERTIES(PlaneConfig)
 using PlanesConfig = std::vector<PlaneConfig>;
 
 //******************************************************************************
+V_DEFINE_PROPERTIES(CSAIConfig)
+(
+    V_DEFINE_PROPERTY(path, std::string(""), "Path to the csai to load (.png)")
+    V_DEFINE_PROPERTY(frame, int(-1), "Frame index")
+)
+using CSAIsConfig = std::vector<CSAIConfig>;
+
+
+//******************************************************************************
 //******************************************************************************
 //******************************************************************************
 V_DEFINE_PROPERTIES(DepthsConfig)
@@ -77,4 +86,7 @@ V_DEFINE_PROPERTIES(DepthsConfig)
     V_DEFINE_PROPERTY(mats, 		MatsConfig(0), 			"Poses (.mat) configurations")
     
     V_DEFINE_PROPERTY(planes, 		PlanesConfig(0), 		"Planes (.bin.gz) configurations")
+    
+    V_DEFINE_PROPERTY(csais, 		CSAIsConfig(0), 		"CSAIs (.png) configurations")
+    V_DEFINE_PROPERTY(refcsais, 	CSAIsConfig(0), 		"Reference CSAIs (.png) configurations")
 )

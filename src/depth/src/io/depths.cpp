@@ -279,6 +279,17 @@ std::map<Index, Pose> load(const CalibrationPosesConfig& config)
 }
 
 //******************************************************************************
+std::map<Index, Image> load(const CSAIsConfig& config)
+{
+	std::map<Index, Image> maps;
+	for (auto & csai_cfg : config)
+	{
+		maps.emplace(csai_cfg.frame(), cv::imread(csai_cfg.path(), cv::IMREAD_UNCHANGED));	
+	}
+	return maps;
+}
+
+//******************************************************************************
 std::map<Index, double> load_gt_dist(std::string path)
 {
 	std::ifstream ifs(path, std::ios::in);

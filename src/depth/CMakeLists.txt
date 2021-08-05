@@ -68,6 +68,8 @@ set(MULTIFOCUS_SRCS
 	##---------------
 	src/processing/tools/chrono.cpp
 	##---------------
+	src/processing/imgproc/quality.cpp
+	##---------------
 	src/graphic/viewer_3d.cpp
 	##---------------
 	src/io/depths.cpp

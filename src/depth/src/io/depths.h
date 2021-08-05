@@ -34,4 +34,6 @@ std::map<Index, Plane> 			load(const PlanesConfig& config); //load planes from b
 std::map<Index, Pose> 			load(const CalibrationPosesConfig& config); //load extrinsics poses from compote
 std::map<Index, Pose> 			load(const MatsConfig& config); //load extrinsics poses from mat files
 
+std::map<Index, Image> 			load(const CSAIsConfig& config); //load csais from png files
+
 std::map<Index, double> 		load_gt_dist(std::string path);

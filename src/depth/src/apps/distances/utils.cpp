@@ -58,6 +58,10 @@ Config_t parse_args(int argc, char *argv[])
 		("dm",
 			po::value<std::string>()->default_value(""),
 			"Path to reading depthmap file (dm.bin.gz)"
+		)
+		("csai",
+			po::value<std::string>()->default_value(""),
+			"Path to csai images file (.png)"
 		);
 
 	po::variables_map vm;
@@ -107,6 +111,7 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.pts			= vm["pts"].as<std::string>();
 	config.path.pc			= vm["pc"].as<std::string>();
 	config.path.dm			= vm["dm"].as<std::string>();
+	config.path.csai		= vm["csai"].as<std::string>();
 	
 	return config; 
 }

@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
 				
 				Image cqmap;
 				cv::LUT(qualitymap, colormap, cqmap);
-				cv::imwrite("color-quality-mse-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cqmap);				
+				cv::imwrite("color-quality-mse-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cqmap);								
 			}
 			PRINT_DEBUG("=== Starting computing MAE quality....");	
 			{
@@ -197,6 +197,13 @@ int main(int argc, char* argv[])
 				Image cqmap;
 				cv::LUT(qualitymap, colormap, cqmap);
 				cv::imwrite("color-quality-mae-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cqmap);	
+
+				constexpr int H = 50;
+				const int W = qualitymap.cols;
+				
+				cv::Mat legend;
+				cv::resize(colormap, legend, cv::Size(W, H), 0, 0, cv::INTER_AREA);
+				cv::imwrite("cm-err-legend.png", legend);
 			}
 			PRINT_DEBUG("=== Starting computing BadPix quality....");
 			{
@@ -261,9 +268,16 @@ int main(int argc, char* argv[])
 		for (auto& [frame, dm] : depthmaps)
 		{
 			inplace_minmax_filter_depth(dm, mfpc.obj2v(maxd), mfpc.obj2v(mind));
-			DepthMapImage dmi = DepthMapImage{dm, mfpc, mfpc.obj2v(maxd), mfpc.obj2v(mind)};
+			DepthMapImage dmi = DepthMapImage{dm, mfpc, 3., 12.}; //mfpc.obj2v(maxd), mfpc.obj2v(mind)};
 			
   			cv::imwrite("dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", dmi.image);
+  			  			
+			constexpr int H = 150;
+			const int W = dmi.image.cols;
+			
+			cv::Mat legend;
+			cv::resize(dmi.colormap, legend, cv::Size(W, H), 0, 0, cv::INTER_AREA);
+			cv::imwrite("cm-dm-legend.png", legend);
   			
 			//FIXME: filter should be applied on metric dm, as all virtual depth hypotheses are in the same unit
 
@@ -357,6 +371,14 @@ int main(int argc, char* argv[])
 					cleaned
 			  	);
 			  	cv::imwrite("csai-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cleaned);
+			  	
+			  	
+				constexpr int H = 50;
+				const int W = dmi.image.cols;
+				
+				cv::Mat legend;
+				cv::resize(PLENO_COLORMAP_VIRIDIS_INV, legend, cv::Size(W, H), 0, 0, cv::INTER_AREA);
+				cv::imwrite("cm-csai-legend.png", legend);
 		  	}
 		  	{
 				Image cleaned;

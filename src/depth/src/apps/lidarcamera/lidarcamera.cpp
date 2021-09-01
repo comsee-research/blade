@@ -259,7 +259,7 @@ int main(int argc, char* argv[])
 	}
 	
 FORCE_GUI(true);	
-	constexpr std::size_t maxcount = 50'000;
+	constexpr std::size_t maxcount = 500'000;
 	
 	PointCloud pc; 
 	v::load(config.path.pc, v::make_serializable(&pc));
@@ -282,7 +282,7 @@ FORCE_GUI(true);
 		const P3D q = to_coordinate_system_of(pose.pose, pc);
 		final_constellation.add(q);
 	}
-	display(initial_constellation); //constellation transformed, coord in (0,0,0), i.e. camera frame
+	display(initial_constellation, 10.); //constellation transformed, coord in (0,0,0), i.e. camera frame
 	display(final_constellation); 
 	
 	wait();
@@ -295,7 +295,7 @@ FORCE_GUI(true);
 		PointCloud transformed_pc = reference;
 		transformed_pc.transform(pose.pose);
 		inplace_minmax_filter_depth(transformed_pc, 400., 1500., Axis::Z);		
-		inplace_maxcount_filter_depth(transformed_pc, maxcount);
+		//inplace_maxcount_filter_depth(transformed_pc, maxcount);
 		DEBUG_VAR(transformed_pc.size());
 		
 		display(3, transformed_pc);			

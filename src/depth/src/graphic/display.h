@@ -33,6 +33,7 @@ GUI(
 	
 	cv::Mat legend;
 	cv::resize(dmi.colormap, legend, cv::Size(W, H), 0, 0, cv::INTER_AREA);
+	cv::imwrite("cm-legend.png", legend);
 	cv::cvtColor(legend, legend, CV_BGR2RGB);
 	
 	ss = (dm.is_virtual_depth()?"":" (mm)");

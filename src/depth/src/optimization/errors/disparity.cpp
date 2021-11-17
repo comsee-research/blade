@@ -7,6 +7,7 @@
 #include <pleno/processing/imgproc/improcess.h>
 
 #define ENABLE_DEBUG_DISPLAY 0
+#define ENABLE_DEBUG_SAVE_IMG 0
 
 //******************************************************************************
 //******************************************************************************
@@ -121,6 +122,16 @@ bool DisparityCostError_<useBlur>::operator()(
 //2) compute mask	
 	Image fmask = Image{fref.size(), CV_64FC1, cv::Scalar::all(1.)};
 	trim_double(fmask, radius);
+
+#if ENABLE_DEBUG_SAVE_IMG
+	Image buff;  
+	fref.convertTo(buff, CV_8UC1, 255.);
+	cv::imwrite("ref-"+std::to_string(getpid())+".png", buff);
+	ftarget.convertTo(buff, CV_8UC1, 255.);
+	cv::imwrite("target-"+std::to_string(getpid())+".png", buff);
+	fmask.convertTo(buff, CV_8UC1, 255.);
+	cv::imwrite("mask-"+std::to_string(getpid())+".png", buff);
+#endif
 	
 //3) compute blur	
 	Image fedi, lpedi;		
@@ -170,6 +181,14 @@ bool DisparityCostError_<useBlur>::operator()(
 				{
 					cv::Laplacian(fedi, lpedi, CV_64FC1); //FIXME: Kernel size ? 3x3
 					cv::add(fedi, (std::fabs(sigma_sqr_r) / 4.) * lpedi, fedi);
+					
+					#if ENABLE_DEBUG_SAVE_IMG
+						lpedi.convertTo(buff, CV_8UC1, 255.);
+						cv::imwrite("laplacian-"+std::to_string(getpid())+".png", buff);
+						fedi.convertTo(buff, CV_8UC1, 255.);
+						cv::imwrite("edi-"+std::to_string(getpid())+".png", buff);
+					#endif
+					
 					break;
 				}	
 				case GAUSSIAN_BLUR:
@@ -210,6 +229,17 @@ bool DisparityCostError_<useBlur>::operator()(
 	//4.3) apply mask
 	Image finalref = fref.mul(wmask);
 	Image finaltarget = wtarget.mul(wmask); 	
+	
+	#if ENABLE_DEBUG_SAVE_IMG
+		wmask.convertTo(buff, CV_8UC1, 255.);
+		cv::imwrite("wmask-"+std::to_string(getpid())+".png", buff);
+		wtarget.convertTo(buff, CV_8UC1, 255.);
+		cv::imwrite("wtarget-"+std::to_string(getpid())+".png", buff);
+		finalref.convertTo(buff, CV_8UC1, 255.);
+		cv::imwrite("mref-"+std::to_string(getpid())+".png", buff);
+		finaltarget.convertTo(buff, CV_8UC1, 255.);
+		cv::imwrite("mwtarget-"+std::to_string(getpid())+".png", buff);
+	#endif
 	
 	//4.4) get sub window if at specific pixel
 	const int h = mii.mi.rows;

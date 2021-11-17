@@ -1,7 +1,7 @@
 BLADE: Blur Aware Depth Estimation with a plenoptic camera
 =====================================================
 
-BLADE is a set of tools to estimate depth map from raw images obtained by a multifocus plenoptic camera (e.g., a Raytrix R12) based on the [libpleno].
+BLADE is a set of tools to estimate depth map from raw images obtained by (multifocus) plenoptic cameras (e.g., a Raytrix R12) based on the [libpleno].
 
 
 Quick Start
@@ -15,7 +15,7 @@ The BLADE applications have a light dependency list:
  * [libpleno], an open-souce C++ library for plenoptic camera,
  
 and was compiled on:
- * Ubuntu 18.04.4 LTS.
+ * Ubuntu 18.04.4 LTS with GCC 7.5.0.
   
 ### Compilation & Test
 
@@ -29,7 +29,7 @@ make -j6
 
 To test the `depth` application you can use the example script from the build directory:
 ```
-./../example/depth.sh
+./../examples/depth.sh
 ```
 
 Applications
@@ -56,11 +56,46 @@ For instance to run depth estimation:
 ```
 ./depth -i images.js -c camera.js -p params.js -o depth.png -v true -g true -l 7
 ```
+
+Five applications are included in BLADE.
+
+### Depth estimation
+`depth` runs depth estimations on input images according to the selected strategy.
+	
+**Requirements:** image(s), camera parameters, internal parameters, strategy configuration.
+**Output:** raw depth map(s), point cloud(s), central sub-aperture depth map(s).
+	
+### Depth scaling calibration
+`calibrate` runs the depth scaling calibration process.
+	
+**Requirements:** images, camera parameters, internal parameters, scene configuration, raw depth maps, features.
+**Output:** camera parameters, scale error statistics (`.csv`).
+
+### Relative depth evaluation	
+`evaluate` runs the evaluations of relative depth estimation with respect to a ground truth. Supported depth formats include: raw depth maps, point clouds, `.csv`, `.pts`, `.xyz`, poses, `.mat` and planes.
+	
+**Requirements:** camera parameters, internal parameters, ground truth and depth information.
+**Output:** absolute and relative errors statistics (`.csv`).
+
+### Extrinsic calibration lidar-camera
+`lidarcamera` runs the extrinsic parameters calibration from LIDAR frame to camera frame, and graphically check the point clouds.
+	
+**Requirements:** camera parameters, internal parameters, calibration image, constellation configuration.
+**Output:** extrinsic parameters.
+
+### Absolute depth evaluation	
+`distances` evaluates distances between reference point cloud and computed depth information, either, directly from central sub-aperture depth map(s) or point cloud(s) or raw depth map(s).
+	
+**Requirements:** camera parameters, internal parameters, extrinsic lidar-camera parameters, images, reference point cloud (`.pts`), depth information to evaluate.
+**Output:** error maps, distances.
+
   
 Datasets
 ========
 
 Datasets R12-A, R12-B and R12-C can be downloaded [from here](https://github.com/comsee-research/plenoptic-datasets).
+The dataset R12-D, and the simulated _unfocused plenoptic camera_ dataset UPC-S are also available [from here](https://github.com/comsee-research/plenoptic-datasets).
+Datasets R12-E, ES and ELP20 are available [here](https://github.com/comsee-research/plenoptic-datasets).
 
 Citing
 ======

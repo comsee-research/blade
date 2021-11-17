@@ -43,10 +43,6 @@ set(MULTIFOCUS_INCDIRS "src" "geometry" "graphic" "io" "optimization" "processin
 ##SOURCES
 set(MULTIFOCUS_SRCS 
 	##---------------
-	src/geometry/depth/depthmap.cpp
-	src/geometry/depth/depthimage.cpp
-	src/geometry/depth/pointcloud.cpp
-	##---------------
 	src/optimization/depth.cpp
 	src/optimization/functions.cpp
 	src/optimization/errors/disparity.cpp

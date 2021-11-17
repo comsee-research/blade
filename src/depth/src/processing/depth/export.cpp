@@ -415,3 +415,41 @@ void export_depth_histogram(
 	ofs.close();		
 }
 
+//******************************************************************************
+//******************************************************************************
+//******************************************************************************
+void export_micro_images_blade(
+	const PlenopticCamera& mfpc, const Image& scene
+)
+{
+	//get indexes
+	const auto [rk, rl] = extract_micro_image_indexes(scene, mfpc.mia());
+	const auto [tk, tl] = extract_micro_image_indexes(scene, mfpc.mia());
+	
+	//get hypothesis
+	VirtualDepth depth{0.};
+	double z = 0.;
+	std::cout << "Depth? z = ";
+	std::cin >> z;
+	
+	depth.v = mfpc.obj2v(z); DEBUG_VAR(depth.v);
+	
+	//build functor
+	MicroImage ref = mfpc.mia().mi(rk, rl, mfpc.I()); 
+ 	mfpc.mia().extract(ref, scene);
+ 	
+	MicroImage target = mfpc.mia().mi(tk, tl, mfpc.I()); 
+ 	mfpc.mia().extract(target, scene);
+ 	
+ 	BlurAwareDisparityCostError f{
+ 		ref, target, mfpc
+ 	};
+ 	
+ 	//compute
+	using Error_t = typename BlurAwareDisparityCostError::ErrorType;
+	Error_t err;
+	
+	f(depth, err);
+	
+	PRINT_DEBUG(err.norm());
+}

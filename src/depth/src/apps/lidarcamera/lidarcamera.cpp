@@ -12,7 +12,7 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "../../geometry/depth/pointcloud.h"
+#include <pleno/geometry/depth/pointcloud.h>
 
 //processing
 #include <pleno/processing/detection/detection.h> 
@@ -181,7 +181,7 @@ int main(int argc, char* argv[])
 	DEBUG_VAR(pose.pose);
 
 	PRINT_WARN("\t5.2) Run calibration");
-	//calibration_LidarPlenopticCamera(pose, mfpc, scene, bap_obs, picture);
+	calibration_LidarPlenopticCamera(pose, mfpc, scene, bap_obs, picture);
 	
 ////////////////////////////////////////////////////////////////////////////////
 // 6) PointCloud computation

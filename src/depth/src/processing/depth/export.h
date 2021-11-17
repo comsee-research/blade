@@ -23,3 +23,12 @@ void export_cost_function(
 void export_depth_histogram(
 	const DepthMap& dm, bool lighten = true
 );
+
+void export_micro_images_blade(
+	const PlenopticCamera& mfpc, const Image& scene
+);
+
+//--------- helper
+IndexPair extract_micro_image_indexes(
+	const Image& gray, const MIA& grid
+);

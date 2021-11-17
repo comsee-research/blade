@@ -12,7 +12,7 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "../../geometry/depth/pointcloud.h"
+#include <pleno/geometry/depth/pointcloud.h>
 
 //processing
 #include <pleno/processing/detection/detection.h> 
@@ -29,7 +29,7 @@
 
 //graphic
 #include "../../graphic/display.h" 
-#include "../../graphic/color.h" 
+#include <pleno/graphic/colormap.h> 
 
 //config
 #include <pleno/io/cfg/images.h>
@@ -445,7 +445,7 @@ int main(int argc, char* argv[])
 		if (yes_no_question("Do you want to compute ref CSAI"))
 		{
 		Chrono::tic();
-			DepthMapImage dmi = DepthMapImage{ref, mfpc, mind, maxd, false /* use min instead of median */};
+			DepthMapImage dmi = DepthMapImage{ref, mfpc, mind, maxd, DepthMapImage::DepthInterpMethod::MIND /* use min instead of median */};
 		Chrono::tac();
 			//cv::cvtColor(dmi.image, dmi.image, CV_BGR2RGB);
 			PRINT_DEBUG("CSAI depth map (in " << Chrono::get() << " s)");

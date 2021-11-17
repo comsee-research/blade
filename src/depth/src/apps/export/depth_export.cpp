@@ -212,7 +212,14 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
-		PRINT_WARN("\t3.2) Compute depth cost function");	
+		PRINT_WARN("\t3.2.1) Compute micro-images blade");	
+		do {
+			export_micro_images_blade(mfpc, pictures[4]);
+		} while (not finished());
+		
+	
+	
+		PRINT_WARN("\t3.2.2) Compute depth cost function");	
 		do {
 			export_cost_function(
 				mfpc, pictures[0], mfpc.obj2v(maxd), mfpc.obj2v(mind), 2500, 

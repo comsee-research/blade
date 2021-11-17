@@ -140,7 +140,7 @@ int main(int argc, char* argv[])
 	constexpr double maxd = 1500.;
 	constexpr double mind = 400.;
 	
-	if (config.path.csai != "")
+	if (config.path.csad != "")
 	{
 		Image colormap;
 	#if 0
@@ -156,19 +156,19 @@ int main(int argc, char* argv[])
 	
 		constexpr double ranged = 950.; //(maxd-mind); // 
 		
-		std::map<Index, Image> refcsais;
-		std::map<Index, Image> csais;
+		std::map<Index, Image> refcsads;
+		std::map<Index, Image> csads;
 		
 		DepthsConfig depths_cfg;
-		v::load(config.path.csai, depths_cfg);
+		v::load(config.path.csad, depths_cfg);
 		
-		csais = load(depths_cfg.csais());
-		refcsais = load(depths_cfg.refcsais());
+		csads = load(depths_cfg.csads());
+		refcsads = load(depths_cfg.refcsads());
 		
-		for (const auto& [frame, ref] : refcsais)
+		for (const auto& [frame, ref] : refcsads)
 		{
-			const auto imit = csais.find(int(frame));
-			if (imit == csais.cend()) continue;
+			const auto imit = csads.find(int(frame));
+			if (imit == csads.cend()) continue;
 			
 			Image& im = imit->second;
 			
@@ -355,7 +355,7 @@ int main(int argc, char* argv[])
 		
 		PRINT_INFO("=== Processing pc ("<< frame <<")");
 				
-		if (yes_no_question("Do you want to compute CSAI"))
+		if (yes_no_question("Do you want to compute csad"))
 		{
 		Chrono::tic();
 			DepthMapImage dmi = DepthMapImage{pc, mfpc, mind, maxd};
@@ -367,10 +367,10 @@ int main(int argc, char* argv[])
 				
 				RENDER_DEBUG_2D(
 					Viewer::context().layer(Viewer::layer()++)
-						.name("CSAI Depth map (cleaned)"),
+						.name("csad Depth map (cleaned)"),
 					cleaned
 			  	);
-			  	cv::imwrite("csai-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cleaned);
+			  	cv::imwrite("csad-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cleaned);
 			  	
 			  	
 				constexpr int H = 50;
@@ -378,23 +378,23 @@ int main(int argc, char* argv[])
 				
 				cv::Mat legend;
 				cv::resize(PLENO_COLORMAP_VIRIDIS_INV, legend, cv::Size(W, H), 0, 0, cv::INTER_AREA);
-				cv::imwrite("cm-csai-legend.png", legend);
+				cv::imwrite("cm-csad-legend.png", legend);
 		  	}
 		  	{
 				Image cleaned;
 				cv::medianBlur(dmi.depthmap, cleaned, 5);
 				erode(cleaned, cleaned, 2);
 				
-			  	cv::imwrite("fcsai-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".exr", cleaned);
+			  	cv::imwrite("fcsad-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".exr", cleaned);
 		  	}
 		  	
 			cv::cvtColor(dmi.image, dmi.image, CV_BGR2RGB);
 			RENDER_DEBUG_2D(
 				Viewer::context().layer(Viewer::layer()++)
-					.name("CSAI Depth map"),
+					.name("csad Depth map"),
 				dmi.image
 		  	);
-			PRINT_DEBUG("CSAI depth map (in " << Chrono::get() << " s)");
+			PRINT_DEBUG("csad depth map (in " << Chrono::get() << " s)");
 		}
 		
 		if (yes_no_question("Do you want to reproject pointcloud"))
@@ -442,25 +442,25 @@ int main(int argc, char* argv[])
 		ref.transform(extrinsics);
 		inplace_minmax_filter_depth(ref, mind, maxd, Axis::Z);
 		
-		if (yes_no_question("Do you want to compute ref CSAI"))
+		if (yes_no_question("Do you want to compute ref csad"))
 		{
 		Chrono::tic();
 			DepthMapImage dmi = DepthMapImage{ref, mfpc, mind, maxd, DepthMapImage::DepthInterpMethod::MIND /* use min instead of median */};
 		Chrono::tac();
 			//cv::cvtColor(dmi.image, dmi.image, CV_BGR2RGB);
-			PRINT_DEBUG("CSAI depth map (in " << Chrono::get() << " s)");
+			PRINT_DEBUG("csad depth map (in " << Chrono::get() << " s)");
 			
 			{
 				Image cleaned;
 				cv::medianBlur(dmi.image, cleaned, 5);
 							
-			  	cv::imwrite("ref-csai-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cleaned);
+			  	cv::imwrite("ref-csad-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", cleaned);
 		  	}
 		  	{
 				Image cleaned;
 				cv::medianBlur(dmi.depthmap, cleaned, 5);
 							
-			  	cv::imwrite("ref-fcsai-"+std::to_string(frame)+"-"+std::to_string(getpid())+".exr", cleaned);
+			  	cv::imwrite("ref-fcsad-"+std::to_string(frame)+"-"+std::to_string(getpid())+".exr", cleaned);
 		  	}
 		}
 		

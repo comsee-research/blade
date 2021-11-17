@@ -53,8 +53,8 @@ set(MULTIFOCUS_SRCS
 	src/processing/depth/filter.cpp
 	src/processing/depth/neighbors.cpp
 	src/processing/depth/pairing.cpp
-	src/processing/depth/initialization.cpp
 	src/processing/depth/search.cpp
+	src/processing/depth/initialization.cpp
 	src/processing/depth/export.cpp
 	src/processing/depth/compute.cpp
 	src/processing/depth/strategy.cpp
@@ -67,8 +67,6 @@ set(MULTIFOCUS_SRCS
 	src/processing/imgproc/quality.cpp
 	##---------------
 	src/graphic/viewer_3d.cpp
-	##---------------
-	src/io/depths.cpp
 	##---------------
 )
 

@@ -34,8 +34,7 @@
 #include <pleno/io/cfg/scene.h>
 #include <pleno/io/cfg/observations.h>
 #include <pleno/io/cfg/poses.h>
-
-#include "../../io/cfg/depths.h"
+#include <pleno/io/cfg/depths.h>
 
 #include <pleno/io/images.h>
 #include "io/depths.h"

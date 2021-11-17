@@ -4,27 +4,6 @@
 
 #include <pleno/processing/tools/stats.h>
 
-
-std::map<Index, double> reduce(const std::map<Index, XYZs>& maps)
-{
-	std::map<Index, double> dists;
-	
-	for (const auto& [frame, xyzs] : maps)
-	{
-		std::vector<double> zs; zs.reserve(xyzs.size());
-		std::transform(
-			xyzs.begin(), xyzs.end(),
-			std::back_inserter(zs),
-			[](const auto&p) -> double { return p.z; }
-		);
-		
-		dists[frame] = median(zs);
-		PRINT_DEBUG("frame ("<<frame<<"): med = " << median(zs) << ", mean = " << mean(zs) << ", std = " << stddev(zs));
-	}
-	
-	return dists;
-}
-
 std::map<Index, double> reduce(const std::map<Index, PointCloud>& maps)
 {
 	std::map<Index, double> dists;

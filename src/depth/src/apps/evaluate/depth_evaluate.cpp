@@ -20,8 +20,8 @@
 #include <pleno/geometry/observation.h>
 #include <pleno/geometry/plane.h>
 
-#include "geometry/depth/depthmap.h"
-#include "geometry/depth/pointcloud.h"
+#include <pleno/geometry/depth/depthmap.h>
+#include <pleno/geometry/depth/pointcloud.h>
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
@@ -34,7 +34,9 @@
 #include <pleno/io/cfg/scene.h>
 #include <pleno/io/cfg/observations.h>
 #include <pleno/io/cfg/poses.h>
-#include "io/depths.h"
+#include <pleno/io/cfg/depths.h>
+
+#include <pleno/io/depths.h>
 
 #include "utils.h"
 
@@ -100,7 +102,6 @@ int main(int argc, char* argv[])
 		std::map<Index, DepthMap>,
 		std::map<Index, PointCloud>,
 		std::map<Index, Plane>,
-		std::map<Index, XYZs>,
 		std::map<Index, Pose>
 	>;
 	
@@ -142,7 +143,7 @@ int main(int argc, char* argv[])
 	{
 		v::load(config.path.xyz, cfg);
 		// load
-		vdms.emplace<std::map<Index, XYZs>>(load(cfg.xyzs()));
+		vdms.emplace<std::map<Index, PointCloud>>(load(cfg.xyzs()));
 	}
 	else if (config.path.poses != "")
 	{

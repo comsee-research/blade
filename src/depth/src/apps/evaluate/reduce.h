@@ -4,16 +4,14 @@
 #include <vector>
 
 #include <pleno/types.h>
-#include "../../types.h"
 
 #include <pleno/geometry/camera/plenoptic.h>
 #include <pleno/geometry/observation.h>
 #include <pleno/geometry/pose.h>
 
-#include "geometry/depth/depthmap.h"
-#include "geometry/depth/pointcloud.h"
+#include <pleno/geometry/depth/depthmap.h>
+#include <pleno/geometry/depth/pointcloud.h>
 
-std::map<Index, double> reduce(const std::map<Index, XYZs>& maps);
 
 std::map<Index, double> reduce(const std::map<Index, Pose>& maps);
 

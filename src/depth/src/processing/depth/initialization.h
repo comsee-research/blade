@@ -5,13 +5,12 @@
 #include <pleno/geometry/camera/plenoptic.h>
 #include <pleno/geometry/mia.h>
 
+#include <pleno/processing/depth/initialization.h>
+
 #include "../../types.h"
 
 #include "depth.h"
 #include "strategy.h"
-
-std::pair<double,double> 
-initialize_min_max_distance(const PlenopticCamera& mfpc);
 
 IndexPair initialize_kl(
 	std::size_t i, std::size_t n, 

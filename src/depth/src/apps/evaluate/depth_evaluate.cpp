@@ -25,8 +25,7 @@
 
 //processing
 #include <pleno/processing/imgproc/improcess.h> //devignetting
-#include "processing/depth/initialization.h"
-#include "processing/depth/export.h"
+#include <pleno/processing/depth/initialization.h>
 
 //config
 #include <pleno/io/cfg/images.h>

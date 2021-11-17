@@ -9,7 +9,7 @@
 #include <pleno/geometry/object/constellation.h>
 #include <pleno/geometry/observation.h>
 
-#include "geometry/depth/depthmap.h"
+#include <pleno/geometry/depth/depthmap.h>
 
 #include <pleno/processing/tools/functions.h>
 

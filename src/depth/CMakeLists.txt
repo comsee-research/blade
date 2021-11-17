@@ -43,21 +43,9 @@ set(MULTIFOCUS_INCDIRS "src" "geometry" "graphic" "io" "optimization" "processin
 ##SOURCES
 set(MULTIFOCUS_SRCS 
 	##---------------
-	src/optimization/depth.cpp
 	src/optimization/functions.cpp
-	src/optimization/errors/disparity.cpp
 	src/optimization/errors/scaling.cpp
 	src/optimization/errors/lidarcamera.cpp
-	##---------------
-	src/processing/depth/depth.cpp
-	src/processing/depth/filter.cpp
-	src/processing/depth/neighbors.cpp
-	src/processing/depth/pairing.cpp
-	src/processing/depth/search.cpp
-	src/processing/depth/initialization.cpp
-	src/processing/depth/export.cpp
-	src/processing/depth/compute.cpp
-	src/processing/depth/strategy.cpp
 	##---------------
 	src/processing/calibration/scaling.cpp
 	src/processing/calibration/lidarcamera.cpp
@@ -85,7 +73,7 @@ target_link_libraries(depth_from_obs ${MULTIFOCUS_LIBS} pthread)
 
 ##################################################
 ##################################################
-set(APP_EXPORT_SRCS src/apps/export/depth_export.cpp src/apps/export/utils.cpp)
+set(APP_EXPORT_SRCS src/apps/export/depth_export.cpp src/apps/export/export.cpp src/apps/export/utils.cpp)
 add_executable(depth_export ${APP_EXPORT_SRCS} ${MULTIFOCUS_SRCS})
 target_include_directories(depth_export PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_export ${MULTIFOCUS_LIBS} pthread)

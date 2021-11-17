@@ -1,11 +1,11 @@
 #pragma once
 
 #include <pleno/types.h>
+
 #include <pleno/geometry/camera/plenoptic.h>
+#include <pleno/geometry/depth/depthmap.h>
 
-#include "geometry/depth/depthmap.h"
-
-#include "strategy.h"
+#include <pleno/processing/depth/strategy.h>
 
 void export_cost_function_from_obs(
 	const PlenopticCamera& mfpc, const Image& scene, 

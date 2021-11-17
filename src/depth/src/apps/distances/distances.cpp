@@ -21,10 +21,10 @@
 
 #include <pleno/processing/tools/chrono.h>
 
-#include "../../processing/calibration/calibration.h" 
-#include "../../processing/depth/depth.h" 
-#include "../../processing/depth/initialization.h" 
-#include "../../processing/depth/filter.h" 
+#include <pleno/processing/calibration/calibration.h>
+#include <pleno/processing/depth/depth.h>
+#include <pleno/processing/depth/initialization.h>
+#include <pleno/processing/depth/filter.h>
 
 //graphic
 #include <pleno/graphic/display.h>

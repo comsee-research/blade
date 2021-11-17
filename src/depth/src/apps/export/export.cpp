@@ -2,6 +2,8 @@
 
 #include <variant> //std::variant, std::monostate; std::visit
 
+#include <pleno/types.h>
+
 #include <pleno/processing/tools/error.h> //RMSE
 #include <pleno/processing/tools/stats.h> //median, mean, iqr, skewness, kurtosis, etc.
 
@@ -10,12 +12,11 @@
 #include <pleno/graphic/display.h>
 #include <pleno/graphic/viewer_2d.h>
 
-#include "optimization/depth.h" //lma
-#include "optimization/errors/disparity.h" //DisparityCostError, BlurAwareDisparityCostError
+#include <pleno/optimization/depth.h> //lma
+#include <pleno/optimization/errors/disparity.h> //DisparityCostError, BlurAwareDisparityCostError
 
-#include "../../types.h"
-#include "neighbors.h"
-#include "pairing.h"
+#include <pleno/processing/depth/neighbors.h>
+#include <pleno/processing/depth/pairing.h>
 
 //******************************************************************************
 //******************************************************************************
@@ -154,8 +155,8 @@ void compute_costs(auto& data, auto& functors, const PlenopticCamera& mfpc, doub
 	data.shrink_to_fit();
 }
 
-#include <pleno/io/cfg/scene.h>
-#include <pleno/geometry/object/plate.h>
+#include "io/cfg/scene.h"
+#include "geometry/object/plate.h"
 
 //******************************************************************************
 //******************************************************************************
@@ -203,14 +204,14 @@ void export_cost_function(
 		ofscf << headercsv.str();
 //------------------------------------------------------------------------------		
 
-		std::map<double, std::vector<IndexPair>> ordered_neighs;
+		std::map<double, NeighborsIndexes> ordered_neighs;
 		if (export_per_baseline)
 		{
 			ordered_neighs = neighbors_by_rings(mfpc.mia(), ck, cl, maxv, 2., 12.);		
 		}
 		else
 		{
-			std::vector<IndexPair> neighs = neighbors(mfpc.mia(), ck, cl, maxv, 2., 12.); //FIXED NEIGBORHOOD?
+			NeighborsIndexes neighs = neighbors(mfpc.mia(), ck, cl, maxv, 2., 12.); //FIXED NEIGBORHOOD?
 		#if 0 //SAME TYPE ONLY	
 			neighs.erase(
 				std::remove_if(neighs.begin(), neighs.end(),

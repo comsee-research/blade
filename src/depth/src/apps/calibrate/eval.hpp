@@ -12,19 +12,18 @@
 #include <pleno/geometry/object/checkerboard.h>
 #include <pleno/geometry/observation.h>
 
-#include "geometry/depth/depthmap.h"
-#include "geometry/depth/pointcloud.h"
+#include <pleno/geometry/depth/depthmap.h>
+#include <pleno/geometry/depth/pointcloud.h>
 
-#include "processing/tools/functions.h"
+#include <pleno/processing/tools/functions.h>
 
 #include <pleno/graphic/gui.h>
 #include <pleno/graphic/viewer_2d.h>
 #include <pleno/graphic/viewer_3d.h>
-#include "../../graphic/display.h"
+#include <pleno/graphic/display.h>
 
 #include <pleno/io/printer.h>
 #include <pleno/io/choice.h>
-
 
 #include <pleno/processing/tools/error.h>
 

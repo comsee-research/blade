@@ -23,10 +23,10 @@
 #include "../../processing/depth/initialization.h" 
 #include "../../processing/depth/filter.h" 
 
-#include "../../processing/tools/chrono.h"
+#include <pleno/processing/tools/chrono.h>
 
 //graphic
-#include "../../graphic/display.h" 
+#include <pleno/graphic/display.h>
 
 //config
 #include <pleno/io/cfg/images.h>
@@ -37,7 +37,7 @@
 #include <pleno/io/cfg/depths.h>
 
 #include <pleno/io/images.h>
-#include "io/depths.h"
+#include <pleno/io/depths.h>
 
 #include "utils.h"
 

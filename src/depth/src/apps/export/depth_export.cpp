@@ -10,14 +10,14 @@
 #include <pleno/types.h>
 
 #include <pleno/graphic/gui.h>
-#include "../../graphic/display.h"
+#include <pleno/graphic/display.h>
 
 #include <pleno/io/printer.h>
 #include <pleno/io/choice.h>
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/depthmap.h"
+#include <pleno/geometry/depth/depthmap.h>
 
 //processing
 #include <pleno/processing/estimation.h> //estimation_plane_fitting/ransac

@@ -62,12 +62,6 @@ set(MULTIFOCUS_SRCS
 	src/processing/calibration/scaling.cpp
 	src/processing/calibration/lidarcamera.cpp
 	##---------------
-	src/processing/tools/chrono.cpp
-	##---------------
-	src/processing/imgproc/quality.cpp
-	##---------------
-	src/graphic/viewer_3d.cpp
-	##---------------
 )
 
 message(${LIBPLENO_LIBRARIES})

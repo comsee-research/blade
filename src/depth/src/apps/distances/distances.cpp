@@ -17,18 +17,17 @@
 //processing
 #include <pleno/processing/detection/detection.h> 
 #include <pleno/processing/imgproc/improcess.h> //devignetting, erode, dilate
+#include <pleno/processing/imgproc/quality.h>
+
+#include <pleno/processing/tools/chrono.h>
 
 #include "../../processing/calibration/calibration.h" 
 #include "../../processing/depth/depth.h" 
 #include "../../processing/depth/initialization.h" 
 #include "../../processing/depth/filter.h" 
 
-#include "../../processing/tools/chrono.h"
-
-#include "../../processing/imgproc/quality.h"
-
 //graphic
-#include "../../graphic/display.h" 
+#include <pleno/graphic/display.h>
 #include <pleno/graphic/colormap.h> 
 
 //config
@@ -37,11 +36,10 @@
 #include <pleno/io/cfg/scene.h>
 #include <pleno/io/cfg/observations.h>
 #include <pleno/io/cfg/poses.h>
-
-#include "io/cfg/depths.h"
+#include <pleno/io/cfg/depths.h>
 
 #include <pleno/io/images.h>
-#include "io/depths.h"
+#include <pleno/io/depths.h>
 
 #include "utils.h"
 

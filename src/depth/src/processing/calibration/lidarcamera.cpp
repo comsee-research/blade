@@ -16,7 +16,7 @@
 
 //graphic
 #include <pleno/graphic/gui.h>
-#include "../../graphic/display.h"
+#include <pleno/graphic/display.h>
 
 //calibration
 #include "link.h"

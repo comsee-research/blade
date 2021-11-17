@@ -6,11 +6,10 @@
 #include <pleno/io/choice.h>
 
 #include <pleno/graphic/display.h>
-#include "../../graphic/display.h"
 
 #include <pleno/processing/imgproc/trim.h>
 
-#include "geometry/depth/depthmap.h"
+#include <pleno/geometry/depth/depthmap.h>
 
 #include "depth.h"
 #include "strategy.h"

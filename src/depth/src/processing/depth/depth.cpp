@@ -9,10 +9,8 @@
 
 #include <pleno/processing/tools/stats.h> //median
 
-#include "geometry/depth/depthmap.h"
+#include <pleno/geometry/depth/depthmap.h>
 #include "processing/tools/chrono.h"
-
-#include "../../graphic/display.h"
 
 #include "strategy.h"
 #include "filter.h"

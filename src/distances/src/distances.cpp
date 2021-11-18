@@ -135,21 +135,12 @@ int main(int argc, char* argv[])
 ////////////////////////////////////////////////////////////////////////////////
 // 4) Error computation
 ////////////////////////////////////////////////////////////////////////////////
-	constexpr double maxd = 1500.;
-	constexpr double mind = 400.;
+	constexpr double maxd = 1500.; //FIXME: set as parameters
+	constexpr double mind = 400.; //FIXME: set as parameters
 	
 	if (config.path.csad != "")
 	{
-		Image colormap;
-	#if 0
-		cv::Mat lut(1, 256, CV_8UC1);
-		uchar *ptr = lut.ptr<uchar>(0);
-		for(int i = 0; i < 256; ++i) ptr[i] = i;
-		
-		cv::applyColorMap(lut, colormap, cv::COLORMAP_JET);
-	#else
-		colormap = PLENO_COLORMAP_TURBO; //PLENO_COLORMAP_VIRIDIS; //
-	#endif
+		Image colormap = PLENO_COLORMAP_TURBO; //PLENO_COLORMAP_VIRIDIS; //
 		colormap.at<cv::Vec3b>(0,0) = cv::Vec3b{0,0,0};
 	
 		constexpr double ranged = 950.; //(maxd-mind); // 
@@ -266,7 +257,7 @@ int main(int argc, char* argv[])
 		for (auto& [frame, dm] : depthmaps)
 		{
 			inplace_minmax_filter_depth(dm, mfpc.obj2v(maxd), mfpc.obj2v(mind));
-			DepthMapImage dmi = DepthMapImage{dm, mfpc, 3., 12.}; //mfpc.obj2v(maxd), mfpc.obj2v(mind)};
+			DepthMapImage dmi = DepthMapImage{dm, mfpc, 3., 12.}; //mfpc.obj2v(maxd), mfpc.obj2v(mind)}; //FIXME
 			
   			cv::imwrite("dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".png", dmi.image);
   			  			
@@ -342,7 +333,7 @@ int main(int argc, char* argv[])
 ////////////////////////////////////////////////////////////////////////////////
 	PRINT_WARN("5) Process pointclouds");
 	std::map<Index, PointCloud> rpjpointclouds;
-	constexpr std::size_t maxcount = 50'000;
+	constexpr std::size_t maxcount = 50'000; //FIXME
 	
 	for (auto& [frame, pc] : pointclouds)
 	{	

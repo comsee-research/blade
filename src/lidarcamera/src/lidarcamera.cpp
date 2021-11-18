@@ -227,7 +227,7 @@ int main(int argc, char* argv[])
 		}
 		
 		v::load(config.path.dm, v::make_serializable(&dm));
-		inplace_minmax_filter_depth(dm, mfpc.obj2v(1500.), mfpc.obj2v(400.));
+		inplace_minmax_filter_depth(dm, mfpc.obj2v(1500.), mfpc.obj2v(400.)); //FIXME	
 		
 		//FIXME: filter should be applied on metric dm, as all virtual depth hypotheses are in the same unit
 
@@ -242,7 +242,7 @@ int main(int argc, char* argv[])
 			
 			//inplace_consistency_filter_depth(mdm, mfpc, 10. /* mm */);	
 				
-			inplace_minmax_filter_depth(mdm, 400., 1500.);
+			inplace_minmax_filter_depth(mdm, 400., 1500.); //FIXME	
 			display(mdm, mfpc);
 		
 			return PointCloud{mdm, mfpc, picture};
@@ -258,11 +258,11 @@ int main(int argc, char* argv[])
 	}
 	
 FORCE_GUI(true);	
-	constexpr std::size_t maxcount = 500'000;
+	constexpr std::size_t maxcount = 500'000; //FIXME	
 	
 	PointCloud pc; 
 	v::load(config.path.pc, v::make_serializable(&pc));
-	inplace_minmax_filter_depth(pc, 400., 1500., Axis::Z);
+	inplace_minmax_filter_depth(pc, 400., 1500., Axis::Z); //FIXME	
 	inplace_maxcount_filter_depth(pc, maxcount);
 	DEBUG_VAR(pc.size());
 	
@@ -293,7 +293,7 @@ FORCE_GUI(true);
 		
 		PointCloud transformed_pc = reference;
 		transformed_pc.transform(pose.pose);
-		inplace_minmax_filter_depth(transformed_pc, 400., 1500., Axis::Z);		
+		inplace_minmax_filter_depth(transformed_pc, 400., 1500., Axis::Z); //FIXME	
 		//inplace_maxcount_filter_depth(transformed_pc, maxcount);
 		DEBUG_VAR(transformed_pc.size());
 		

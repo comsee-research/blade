@@ -31,10 +31,6 @@ Config_t parse_args(int argc, char *argv[])
 			"Select level of output to print (can be combined):\n"
 			"NONE=0, ERR=1, WARN=2, INFO=4, DEBUG=8, ALL=15"
 		)
-		("pimages,i",
-			po::value<std::string>()->default_value(""),
-			"Path to images configuration file"
-		)
 		("pcamera,c",
 			po::value<std::string>()->default_value(""),
 			"Path to camera configuration file"
@@ -43,25 +39,45 @@ Config_t parse_args(int argc, char *argv[])
 			po::value<std::string>()->default_value(""),
 			"Path to camera internal parameters configuration file"
 		)
-		("extrinsics,e",
+		("features,f",
 			po::value<std::string>()->default_value(""),
-			"Path to initial pose between camera and lidar"
-		)
-		("pts",
-			po::value<std::string>()->default_value(""),
-			"Path to reference pointcloud file (.pts)"
-		)
-		("pc",
-			po::value<std::string>()->default_value(""),
-			"Path to reading pointcloud file (pc.bin.gz)"
+			"Path to observations file"
 		)
 		("dm",
 			po::value<std::string>()->default_value(""),
-			"Path to reading depthmap file (dm.bin.gz)"
+			"Path to depthmaps configuration file"
 		)
-		("csad",
+		("pc",
 			po::value<std::string>()->default_value(""),
-			"Path to csad images file (.png)"
+			"Path to pointclouds configuration file"
+		)
+		("pl",
+			po::value<std::string>()->default_value(""),
+			"Path to planes configuration file"
+		)
+		("csv",
+			po::value<std::string>()->default_value(""),
+			"Path to csv depthmap configuration file"
+		)
+		("xyz",
+			po::value<std::string>()->default_value(""),
+			"Path to xyz pointcloud configuration file"
+		)
+		("pts",
+			po::value<std::string>()->default_value(""),
+			"Path to pts pointcloud configuration file"
+		)
+		("mat",
+			po::value<std::string>()->default_value(""),
+			"Path to mat poses configuration file"
+		)
+		("poses",
+			po::value<std::string>()->default_value(""),
+			"Path to poses configuration file"
+		)
+		("gt",
+			po::value<std::string>()->default_value(""),
+			"Path to ground truth displacements file (.csv)"
 		);
 
 	po::variables_map vm;
@@ -71,7 +87,7 @@ Config_t parse_args(int argc, char *argv[])
 	catch (po::error &e) {
 		/* Invalid options */
 		std::cerr << "Error: " << e.what() << std::endl << std::endl;
-		std::cout << "Calibration Lidar-Camera with a MFPC:" << std::endl
+		std::cout << "Relative depth evaluation with a MFPC:" << std::endl
 		  << desc << std::endl;
 		exit(0);
 	}
@@ -81,19 +97,20 @@ Config_t parse_args(int argc, char *argv[])
 	if (vm.count("help") or argc==1)
 	{
 		/* print usage */
-		std::cout << "Calibration Lidar-Camera with a MFPC:" << std::endl
+		std::cout << "Relative depth evaluation with a MFPC:" << std::endl
 				      << desc << std::endl;
 		exit(0);
 	}
 	
 	//check mandatory parameters
-	if(		vm["pimages"].as<std::string>() == "" or vm["pparams"].as<std::string>() == ""
-		or 	vm["pcamera"].as<std::string>() == ""
+	if(	vm["pparams"].as<std::string>() == ""
+		or vm["pcamera"].as<std::string>() == ""
+		or vm["gt"].as<std::string>() == ""
 	)
 	{
 		/* print usage */
 		std::cerr << "Please specify at the configuration files. " << std::endl;
-		std::cout << "Pointclouds distances with a MFPC:" << std::endl
+		std::cout << "Relative depth evaluation with a MFPC:" << std::endl
 				      << desc << std::endl;
 		exit(0);
 	}
@@ -104,14 +121,21 @@ Config_t parse_args(int argc, char *argv[])
 	config.use_gui 	 		= vm["gui"].as<bool>();
 	config.verbose			= vm["verbose"].as<bool>();
 	config.level			= vm["level"].as<std::uint16_t>();
-	config.path.images 		= vm["pimages"].as<std::string>();
+	
 	config.path.camera 		= vm["pcamera"].as<std::string>();
 	config.path.params 		= vm["pparams"].as<std::string>();
-	config.path.extrinsics 	= vm["extrinsics"].as<std::string>();
-	config.path.pts			= vm["pts"].as<std::string>();
-	config.path.pc			= vm["pc"].as<std::string>();
-	config.path.dm			= vm["dm"].as<std::string>();
-	config.path.csad		= vm["csad"].as<std::string>();
+	config.path.features 	= vm["features"].as<std::string>();
+	
+	config.path.dm 			= vm["dm"].as<std::string>();
+	config.path.pc 			= vm["pc"].as<std::string>();
+	config.path.pl 			= vm["pl"].as<std::string>();
+	config.path.csv			= vm["csv"].as<std::string>();
+	config.path.xyz 		= vm["xyz"].as<std::string>();
+	config.path.xyz 		= vm["pts"].as<std::string>();
+	config.path.poses 		= vm["poses"].as<std::string>();
+	config.path.mat 		= vm["mat"].as<std::string>();
+	
+	config.path.gt 			= vm["gt"].as<std::string>();
 	
 	return config; 
 }

@@ -33,12 +33,12 @@
 
 #include <pleno/io/images.h>
 
-#include "export.h"
+#include "helpers.h"
 #include "utils.h"
 
 int main(int argc, char* argv[])
 {
-	PRINT_INFO("========= Depth Estimation with a Multifocus plenoptic camera =========");
+	PRINT_INFO("========= BLADE export with a Multifocus plenoptic camera =========");
 	Config_t config = parse_args(argc, argv);
 	
 	Viewer::enable(config.use_gui); DEBUG_VAR(Viewer::enable());
@@ -217,8 +217,6 @@ int main(int argc, char* argv[])
 			export_micro_images_blade(mfpc, pictures[4]);
 		} while (not finished());
 		
-	
-	
 		PRINT_WARN("\t3.2.2) Compute depth cost function");	
 		do {
 			export_cost_function(

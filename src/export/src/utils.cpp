@@ -31,6 +31,10 @@ Config_t parse_args(int argc, char *argv[])
 			"Select level of output to print (can be combined):\n"
 			"NONE=0, ERR=1, WARN=2, INFO=4, DEBUG=8, ALL=15"
 		)
+		("pimages,i",
+			po::value<std::string>()->default_value(""),
+			"Path to images configuration file"
+		)
 		("pcamera,c",
 			po::value<std::string>()->default_value(""),
 			"Path to camera configuration file"
@@ -45,39 +49,15 @@ Config_t parse_args(int argc, char *argv[])
 		)
 		("dm",
 			po::value<std::string>()->default_value(""),
-			"Path to depthmaps configuration file"
+			"Path to depthmap file"
 		)
 		("pc",
 			po::value<std::string>()->default_value(""),
-			"Path to pointclouds configuration file"
+			"Path to pointclouds file"
 		)
-		("pl",
-			po::value<std::string>()->default_value(""),
-			"Path to planes configuration file"
-		)
-		("csv",
-			po::value<std::string>()->default_value(""),
-			"Path to csv depthmap configuration file"
-		)
-		("xyz",
-			po::value<std::string>()->default_value(""),
-			"Path to xyz pointcloud configuration file"
-		)
-		("pts",
-			po::value<std::string>()->default_value(""),
-			"Path to pts pointcloud configuration file"
-		)
-		("mat",
-			po::value<std::string>()->default_value(""),
-			"Path to mat poses configuration file"
-		)
-		("poses",
-			po::value<std::string>()->default_value(""),
-			"Path to poses configuration file"
-		)
-		("gt",
-			po::value<std::string>()->default_value(""),
-			"Path to ground truth displacements file (.csv)"
+		("output,o",
+			po::value<std::string>()->default_value("depth.png"),
+			"Path to save depth map"
 		);
 
 	po::variables_map vm;
@@ -87,7 +67,7 @@ Config_t parse_args(int argc, char *argv[])
 	catch (po::error &e) {
 		/* Invalid options */
 		std::cerr << "Error: " << e.what() << std::endl << std::endl;
-		std::cout << "Depth evaluation with a MFPC:" << std::endl
+		std::cout << "BLADE Export with a MFPC:" << std::endl
 		  << desc << std::endl;
 		exit(0);
 	}
@@ -97,20 +77,19 @@ Config_t parse_args(int argc, char *argv[])
 	if (vm.count("help") or argc==1)
 	{
 		/* print usage */
-		std::cout << "Depth evaluation with a MFPC:" << std::endl
+		std::cout << "BLADE Export with a MFPC:" << std::endl
 				      << desc << std::endl;
 		exit(0);
 	}
 	
 	//check mandatory parameters
-	if(	vm["pparams"].as<std::string>() == ""
+	if(	(vm["pimages"].as<std::string>() == "" and vm["pparams"].as<std::string>() == "")
 		or vm["pcamera"].as<std::string>() == ""
-		or vm["gt"].as<std::string>() == ""
 	)
 	{
 		/* print usage */
 		std::cerr << "Please specify at the configuration files. " << std::endl;
-		std::cout << "Depth evaluation with a MFPC:" << std::endl
+		std::cout << "BLADE Export with a MFPC:" << std::endl
 				      << desc << std::endl;
 		exit(0);
 	}
@@ -121,21 +100,13 @@ Config_t parse_args(int argc, char *argv[])
 	config.use_gui 	 		= vm["gui"].as<bool>();
 	config.verbose			= vm["verbose"].as<bool>();
 	config.level			= vm["level"].as<std::uint16_t>();
-	
+	config.path.images 		= vm["pimages"].as<std::string>();
 	config.path.camera 		= vm["pcamera"].as<std::string>();
 	config.path.params 		= vm["pparams"].as<std::string>();
 	config.path.features 	= vm["features"].as<std::string>();
-	
+	config.path.output 		= vm["output"].as<std::string>();
 	config.path.dm 			= vm["dm"].as<std::string>();
 	config.path.pc 			= vm["pc"].as<std::string>();
-	config.path.pl 			= vm["pl"].as<std::string>();
-	config.path.csv			= vm["csv"].as<std::string>();
-	config.path.xyz 		= vm["xyz"].as<std::string>();
-	config.path.xyz 		= vm["pts"].as<std::string>();
-	config.path.poses 		= vm["poses"].as<std::string>();
-	config.path.mat 		= vm["mat"].as<std::string>();
-	
-	config.path.gt 			= vm["gt"].as<std::string>();
 	
 	return config; 
 }

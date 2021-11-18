@@ -45,7 +45,7 @@
 
 int main(int argc, char* argv[])
 {
-	PRINT_INFO("========= Depth Evaluation with a Multifocus plenoptic camera =========");
+	PRINT_INFO("========= Relative Depth Evaluation with a Multifocus plenoptic camera =========");
 	Config_t config = parse_args(argc, argv);
 	
 	Viewer::enable(config.use_gui); DEBUG_VAR(Viewer::enable());

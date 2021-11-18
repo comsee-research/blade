@@ -8,5 +8,10 @@ message("BLADE: Blur Aware Depth Estimation with a Multi-focus Plenoptic camera"
 message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
 add_subdirectory(src/depth)
+add_subdirectory(src/distances)
+add_subdirectory(src/evaluate)
+add_subdirectory(src/export)
+add_subdirectory(src/lidarcamera)
+add_subdirectory(src/scaling)
 
 

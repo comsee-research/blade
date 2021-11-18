@@ -1,4 +1,4 @@
-#include "export.h"
+#include "helpers.h"
 
 #include <variant> //std::variant, std::monostate; std::visit
 
@@ -155,8 +155,8 @@ void compute_costs(auto& data, auto& functors, const PlenopticCamera& mfpc, doub
 	data.shrink_to_fit();
 }
 
-#include "io/cfg/scene.h"
-#include "geometry/object/plate.h"
+#include <pleno/io/cfg/scene.h>
+#include <pleno/geometry/object/plate.h>
 
 //******************************************************************************
 //******************************************************************************

@@ -43,29 +43,25 @@ Config_t parse_args(int argc, char *argv[])
 			po::value<std::string>()->default_value(""),
 			"Path to camera internal parameters configuration file"
 		)
-		("features,f",
+		("extrinsics,e",
 			po::value<std::string>()->default_value(""),
-			"Path to observations file"
+			"Path to initial pose between camera and lidar"
 		)
-		("dm",
+		("pts",
 			po::value<std::string>()->default_value(""),
-			"Path to depthmap file"
+			"Path to reference pointcloud file (.pts)"
 		)
 		("pc",
 			po::value<std::string>()->default_value(""),
-			"Path to pointclouds file"
+			"Path to reading pointcloud file (pc.bin.gz)"
 		)
-		("proba", 
-			po::value<bool>()->default_value(true),
-			"Enable probabilistic estimation"
+		("dm",
+			po::value<std::string>()->default_value(""),
+			"Path to reading depthmap file (dm.bin.gz)"
 		)
-		("method,m", 
-			po::value<std::uint16_t>()->default_value(SearchStrategy::GOLDEN_SECTION),
-			"Depth search method:\nNONLIN_OPTIM=0, BRUTE_FORCE=1, GOLDEN_SECTION=2"
-		)
-		("output,o",
-			po::value<std::string>()->default_value("depth.png"),
-			"Path to save depth map"
+		("csad",
+			po::value<std::string>()->default_value(""),
+			"Path to csad images file (.png)"
 		);
 
 	po::variables_map vm;
@@ -75,7 +71,7 @@ Config_t parse_args(int argc, char *argv[])
 	catch (po::error &e) {
 		/* Invalid options */
 		std::cerr << "Error: " << e.what() << std::endl << std::endl;
-		std::cout << "Depth Estimation with a MFPC:" << std::endl
+		std::cout << "Absolute depth evaluation with a MFPC:" << std::endl
 		  << desc << std::endl;
 		exit(0);
 	}
@@ -85,19 +81,19 @@ Config_t parse_args(int argc, char *argv[])
 	if (vm.count("help") or argc==1)
 	{
 		/* print usage */
-		std::cout << "Depth Estimation with a MFPC:" << std::endl
+		std::cout << "Absolute depth evaluation with a MFPC:" << std::endl
 				      << desc << std::endl;
 		exit(0);
 	}
 	
 	//check mandatory parameters
-	if(	(vm["pimages"].as<std::string>() == "" and vm["pparams"].as<std::string>() == "")
-		or vm["pcamera"].as<std::string>() == ""
+	if(		vm["pimages"].as<std::string>() == "" or vm["pparams"].as<std::string>() == ""
+		or 	vm["pcamera"].as<std::string>() == ""
 	)
 	{
 		/* print usage */
 		std::cerr << "Please specify at the configuration files. " << std::endl;
-		std::cout << "Depth Estimation with a MFPC:" << std::endl
+		std::cout << "Absolute depth evaluation with a MFPC:" << std::endl
 				      << desc << std::endl;
 		exit(0);
 	}
@@ -111,13 +107,11 @@ Config_t parse_args(int argc, char *argv[])
 	config.path.images 		= vm["pimages"].as<std::string>();
 	config.path.camera 		= vm["pcamera"].as<std::string>();
 	config.path.params 		= vm["pparams"].as<std::string>();
-	config.path.features 	= vm["features"].as<std::string>();
-	config.path.output 		= vm["output"].as<std::string>();
-	config.path.dm 			= vm["dm"].as<std::string>();
-	config.path.pc 			= vm["pc"].as<std::string>();
-	
-	config.use_probabilistic 	= vm["proba"].as<bool>();
-	config.method				= vm["method"].as<std::uint16_t>();
+	config.path.extrinsics 	= vm["extrinsics"].as<std::string>();
+	config.path.pts			= vm["pts"].as<std::string>();
+	config.path.pc			= vm["pc"].as<std::string>();
+	config.path.dm			= vm["dm"].as<std::string>();
+	config.path.csad		= vm["csad"].as<std::string>();
 	
 	return config; 
 }

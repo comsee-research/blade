@@ -54,39 +54,45 @@ All applications use _.js (json)_ configuration file. The path to this configura
 
 For instance to run depth estimation:
 ```
-./depth -i images.js -c camera.js -p params.js -o depth.png -v true -g true -l 7
+./src/depth/depth -i images.js -c camera.js -p params.js -o depth.png -v true -g true -l 7
 ```
 
 Five applications are included in BLADE.
 
 ### Depth estimation
 `depth` runs depth estimations on input images according to the selected strategy.
+`depth_from_obs` runs depth estimations on input images according to the selected strategy at micro-images containing BAP features only.
 	
 **Requirements:** image(s), camera parameters, internal parameters, strategy configuration.
+
 **Output:** raw depth map(s), point cloud(s), central sub-aperture depth map(s).
 	
 ### Depth scaling calibration
-`calibrate` runs the depth scaling calibration process.
+`scaling` runs the depth scaling calibration process.
 	
 **Requirements:** images, camera parameters, internal parameters, scene configuration, raw depth maps, features.
+
 **Output:** camera parameters, scale error statistics (`.csv`).
 
 ### Relative depth evaluation	
 `evaluate` runs the evaluations of relative depth estimation with respect to a ground truth. Supported depth formats include: raw depth maps, point clouds, `.csv`, `.pts`, `.xyz`, poses, `.mat` and planes.
 	
 **Requirements:** camera parameters, internal parameters, ground truth and depth information.
+
 **Output:** absolute and relative errors statistics (`.csv`).
 
 ### Extrinsic calibration lidar-camera
 `lidarcamera` runs the extrinsic parameters calibration from LIDAR frame to camera frame, and graphically check the point clouds.
 	
 **Requirements:** camera parameters, internal parameters, calibration image, constellation configuration.
+
 **Output:** extrinsic parameters.
 
 ### Absolute depth evaluation	
 `distances` evaluates distances between reference point cloud and computed depth information, either, directly from central sub-aperture depth map(s) or point cloud(s) or raw depth map(s).
 	
 **Requirements:** camera parameters, internal parameters, extrinsic lidar-camera parameters, images, reference point cloud (`.pts`), depth information to evaluate.
+
 **Output:** error maps, distances.
 
   
@@ -109,6 +115,16 @@ If you use BLADE or [libpleno] in an academic context, please cite the following
 	  pages		=	{2545--2554},
 	  year		=	{2020}
 	}
+	
+or 
+
+	@article{labussiere2021calibration
+	  title	    =	{Leveraging blur information for plenoptic camera calibration},
+	  author	=	{Labussi{\`e}re, Mathieu and Teuli{\`e}re, C{\'e}line and Bernardin, Fr{\'e}d{\'e}ric and Ait-Aider, Omar},
+	  journal	=	{arXiv preprint arXiv:2111.05226},
+	  year		=	{2021}
+	}
+
 
 
 License

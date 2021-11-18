@@ -3,7 +3,6 @@ BLADE: Blur Aware Depth Estimation with a plenoptic camera
 
 BLADE is a set of tools to estimate depth map from raw images obtained by (multifocus) plenoptic cameras (e.g., a Raytrix R12) based on the [libpleno].
 
-
 Quick Start
 ===========
 
@@ -61,6 +60,7 @@ Five applications are included in BLADE.
 
 ### Depth estimation
 `depth` runs depth estimations on input images according to the selected strategy.
+
 `depth_from_obs` runs depth estimations on input images according to the selected strategy at micro-images containing BAP features only.
 	
 **Requirements:** image(s), camera parameters, internal parameters, strategy configuration.
@@ -99,9 +99,9 @@ Five applications are included in BLADE.
 Datasets
 ========
 
-Datasets R12-A, R12-B and R12-C can be downloaded [from here](https://github.com/comsee-research/plenoptic-datasets).
-The dataset R12-D, and the simulated _unfocused plenoptic camera_ dataset UPC-S are also available [from here](https://github.com/comsee-research/plenoptic-datasets).
-Datasets R12-E, ES and ELP20 are available [here](https://github.com/comsee-research/plenoptic-datasets).
+* Datasets R12-A, R12-B and R12-C can be downloaded [from here](https://github.com/comsee-research/plenoptic-datasets).
+* The dataset R12-D, and the simulated _unfocused plenoptic camera_ dataset UPC-S are also available [from here](https://github.com/comsee-research/plenoptic-datasets).
+* Datasets R12-E, ES and ELP20 are available [here](https://github.com/comsee-research/plenoptic-datasets).
 
 Citing
 ======

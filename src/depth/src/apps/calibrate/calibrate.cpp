@@ -10,14 +10,15 @@
 
 //geometry
 #include <pleno/geometry/observation.h>
-#include "geometry/depth/depthmap.h"
+#include <pleno/geometry/depth/depthmap.h>
 
 //processing
+#include <pleno/processing/calibration/calibration.h>
 #include <pleno/processing/calibration/init.h> 
+#include <pleno/processing/calibration/evaluate.h> 
+
 #include <pleno/processing/imgproc/improcess.h> //devignetting
 #include <pleno/processing/tools/stats.h> //median
-
-#include "../../processing/calibration/calibration.h" 
 
 //config
 #include <pleno/io/cfg/images.h>
@@ -25,14 +26,11 @@
 #include <pleno/io/cfg/scene.h>
 #include <pleno/io/cfg/observations.h>
 #include <pleno/io/cfg/poses.h>
-#include "io/cfg/depths.h"
+#include <pleno/io/cfg/depths.h>
 
 #include <pleno/io/images.h>
 
-#include "eval.h"
 #include "utils.h"
-
-#define USE_QUADRATIC_SCALING 1
 
 int main(int argc, char* argv[])
 {
@@ -188,15 +186,13 @@ int main(int argc, char* argv[])
 	evaluate_scale_error(mfpc, scene, depthmaps, observations, pictures);
 	
 	PRINT_INFO("\t6.2) Calibrate scale");
-#if USE_QUADRATIC_SCALING
-	QuadraticFunction scaling; //
-#else
-	LinearFunction scaling;	//
-#endif
+	QuadraticFunction scaling; //LinearFunction scaling;	//
 	calibration_depthScaling(scaling, mfpc, scene, depthmaps, observations);
 	
 	PRINT_INFO("\t6.3) Evaluate rescaled error");
-	evaluate_scale_error(mfpc, scaling, scene, depthmaps, observations, pictures);
+	mfpc.scaling() = scaling;
+	evaluate_scale_error(mfpc, scene, depthmaps, observations, pictures);
+	mfpc.scaling() = QuadraticFunction{}; // LinearFunction{}; //restore no scaling 
 	
 	PRINT_INFO("\t6.4) Computing new depth map");
 	auto reduce = [](const DepthMap& dm, const BAPObservations& obs = {}) -> double {
@@ -270,15 +266,7 @@ int main(int argc, char* argv[])
 	
 	if(save()) 
 	{
-#if USE_QUADRATIC_SCALING
-			mfpc.scaling().a = scaling.a;
-			mfpc.scaling().b = scaling.b;
-			mfpc.scaling().c = scaling.c;
-#else
-			mfpc.scaling().a = 0.;
-			mfpc.scaling().b = scaling.a;
-			mfpc.scaling().c = scaling.b;
-#endif							
+		mfpc.scaling() = scaling;
 		PRINT_WARN("\t... Saving Intrinsic Parameters");
 		save("intrinsics-"+std::to_string(getpid())+".js", mfpc);
 	}

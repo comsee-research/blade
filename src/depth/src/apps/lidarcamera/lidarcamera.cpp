@@ -18,8 +18,6 @@
 #include <pleno/processing/detection/detection.h> 
 #include <pleno/processing/imgproc/improcess.h> //devignetting, erode, dilate
 
-#include "../../processing/calibration/calibration.h"
- 
 #include <pleno/processing/calibration/calibration.h> 
 #include <pleno/processing/depth/depth.h>
 #include <pleno/processing/depth/initialization.h>

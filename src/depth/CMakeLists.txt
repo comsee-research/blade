@@ -38,19 +38,7 @@ if (USE_OPEN_MP)
 endif (USE_OPEN_MP)
 
 ##INCLUDE DIRECTORIES
-set(MULTIFOCUS_INCDIRS "src" "geometry" "graphic" "io" "optimization" "processing")
-
-##SOURCES
-set(MULTIFOCUS_SRCS 
-	##---------------
-	src/optimization/functions.cpp
-	src/optimization/errors/scaling.cpp
-	src/optimization/errors/lidarcamera.cpp
-	##---------------
-	src/processing/calibration/scaling.cpp
-	src/processing/calibration/lidarcamera.cpp
-	##---------------
-)
+set(MULTIFOCUS_INCDIRS "src")
 
 message(${LIBPLENO_LIBRARIES})
 include_directories(${CMAKE_CURRENT_BINARY_DIR} ${LIBPLENO_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIR})
@@ -81,7 +69,7 @@ target_link_libraries(depth_export ${MULTIFOCUS_LIBS} pthread)
 
 ##################################################
 ##################################################
-set(APP_CALIBRATE_SRCS src/apps/calibrate/calibrate.cpp src/apps/calibrate/utils.cpp src/apps/calibrate/eval.cpp)
+set(APP_CALIBRATE_SRCS src/apps/calibrate/calibrate.cpp src/apps/calibrate/utils.cpp) # src/apps/calibrate/eval.cpp)
 add_executable(depth_calibrate ${APP_CALIBRATE_SRCS} ${MULTIFOCUS_SRCS})
 target_include_directories(depth_calibrate PRIVATE ${MULTIFOCUS_INCDIRS})
 target_link_libraries(depth_calibrate ${MULTIFOCUS_LIBS} pthread)

@@ -14,6 +14,7 @@ find_package(Boost COMPONENTS program_options filesystem REQUIRED)
 
 set(CMAKE_BUILD_TYPE "Release")
 add_definitions(-O3)
+add_definitions(-fconcepts)
 
 ##LINK LIBRARIES
 set(MULTIFOCUS_LIBS

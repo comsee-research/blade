@@ -377,7 +377,7 @@ int main(int argc, char* argv[])
 			  	cv::imwrite("fcsad-dm-"+std::to_string(frame)+"-"+std::to_string(getpid())+".exr", cleaned);
 		  	}
 		  	
-			cv::cvtColor(dmi.image, dmi.image, CV_BGR2RGB);
+			cv::cvtColor(dmi.image, dmi.image, cv::COLOR_BGR2RGB);
 			RENDER_DEBUG_2D(
 				Viewer::context().layer(Viewer::layer()++)
 					.name("csad Depth map"),

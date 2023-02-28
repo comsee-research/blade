@@ -10,11 +10,12 @@ Quick Start
 
 The BLADE applications have a light dependency list:
 
- * [boost] version 1.54 and up, portable C++ source libraries,
+ * [boost] version >1.54 and up, portable C++ source libraries,
  * [libpleno], an open-souce C++ library for plenoptic camera,
  
-and was compiled on:
- * Ubuntu 18.04.4 LTS with GCC 7.5.0.
+and was compiled and tested on:
+  * Ubuntu 18.04.4 LTS, GCC 7.5.0, with Eigen 3.3.4, Boost 1.65.1, and OpenCV 3.2.0,
+  * Ubuntu 20.04.5 LTS, GCC 9.4.0, with Eigen 3.3.7, Boost 1.71.0, and OpenCV 4.2.0.
   
 ### Compilation & Test
 

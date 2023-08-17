@@ -109,6 +109,21 @@ Citing
 
 If you use BLADE or [libpleno] in an academic context, please cite the following publication:
 
+	@article{labussiere2023blade,
+	  title = {Blur aware metric depth estimation with multi-focus plenoptic cameras},
+	  author = {Mathieu Labussière and Céline Teulière and Omar Ait-Aider},
+	  keywords = {Plenoptic Camera, Multi-focus, Calibration, Defocus stereo, Relative blur, Disparity, Metric depth estimation},
+	  doi = {https://doi.org/10.1016/j.cviu.2023.103802},
+	  issn = {1077-3142},
+	  journal = {Computer Vision and Image Understanding},
+	  year = {2023},
+	  volume = {235},
+	  pages = {103802},
+	  url = {https://www.sciencedirect.com/science/article/pii/S1077314223001820}
+	}
+	
+or 
+
 	@inproceedings{labussiere2020blur,
 	  title 	=	{Blur Aware Calibration of Multi-Focus Plenoptic Camera},
 	  author	=	{Labussi{\`e}re, Mathieu and Teuli{\`e}re, C{\'e}line and Bernardin, Fr{\'e}d{\'e}ric and Ait-Aider, Omar},
